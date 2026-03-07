@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply antialiased;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  input, select, textarea {
+    @apply bg-navy-800 text-white border border-navy-600 rounded-lg px-3 py-3 text-base
+      focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply font-semibold rounded-xl px-6 py-4 text-base transition-all duration-150
+      active:scale-95 disabled:opacity-40 disabled:active:scale-100
+      flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    @apply btn bg-navy-600 text-white hover:bg-navy-500;
+  }
+
+  .btn-gold {
+    @apply btn bg-gold text-navy-950 hover:bg-gold-light;
+  }
+
+  .btn-score-us {
+    @apply btn bg-score-green text-white text-lg font-bold;
+    min-height: 56px;
+  }
+
+  .btn-score-them {
+    @apply btn bg-score-red text-white text-lg font-bold;
+    min-height: 56px;
+  }
+
+  .card {
+    @apply bg-navy-800 rounded-xl border border-navy-700;
+  }
+}
