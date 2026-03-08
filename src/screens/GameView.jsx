@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../db';
 import { useGame } from '../context/GameContext';
 import { suggestLineup, previewLineups, getPlayerStats } from '../utils/lineup';
+import { syncGameToSheet } from '../utils/sheetsSync';
 import Scoreboard from '../components/Scoreboard';
 import AlertBanner from '../components/AlertBanner';
 import PlayerCard from '../components/PlayerCard';
@@ -146,8 +147,9 @@ export default function GameView() {
     setShowSubModal(false);
   }
 
-  function handleEndGame() {
-    saveAndEndGame();
+  async function handleEndGame() {
+    await saveAndEndGame();
+    syncGameToSheet(state, players).catch(() => {}); // fire-and-forget, don't block
     navigate('/');
   }
 

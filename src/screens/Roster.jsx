@@ -22,14 +22,23 @@ export default function Roster() {
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState('');
   const [sheetPreview, setSheetPreview] = useState(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
-  // Load saved sheet URL
+  // Results sync script
+  const [showScriptSetup, setShowScriptSetup] = useState(false);
+  const [scriptUrl, setScriptUrl] = useState('');
+  const [scriptSaved, setScriptSaved] = useState(false);
+
+  // Load saved URLs
   useEffect(() => {
     db.settings.get('rosterSheetUrl').then(setting => {
       if (setting?.value) setSheetUrl(setting.value);
     }).catch(() => {});
     db.settings.get('rosterSheetTab').then(setting => {
       if (setting?.value) setSheetTab(setting.value);
+    }).catch(() => {});
+    db.settings.get('scriptUrl').then(setting => {
+      if (setting?.value) setScriptUrl(setting.value);
     }).catch(() => {});
   }, []);
 
@@ -220,6 +229,21 @@ export default function Roster() {
               {sheetLoading ? 'Fetching...' : 'Fetch Roster'}
             </button>
 
+            {sheetUrl.trim() && (
+              <button
+                onClick={() => {
+                  const link = `${window.location.origin}/ultimate-tracker/?sheet=${encodeURIComponent(sheetUrl.trim())}`;
+                  navigator.clipboard.writeText(link).then(() => {
+                    setShareCopied(true);
+                    setTimeout(() => setShareCopied(false), 2000);
+                  });
+                }}
+                className="btn-primary w-full text-sm"
+              >
+                {shareCopied ? 'Link Copied!' : 'Copy Share Link for Another Coach'}
+              </button>
+            )}
+
             {sheetError && (
               <p className={`text-xs ${sheetError.startsWith('Imported') || sheetError.startsWith('All') ? 'text-score-green' : 'text-score-red'}`}>
                 {sheetError}
@@ -288,6 +312,42 @@ export default function Roster() {
             />
             <button onClick={handleImport} className="btn-primary w-full mt-2 py-3">
               Import Players
+            </button>
+          </div>
+        )}
+
+        {/* Results sync script */}
+        <button
+          onClick={() => { setShowScriptSetup(!showScriptSetup); setShowImport(false); setShowSheetImport(false); }}
+          className="text-sm text-navy-300 underline underline-offset-2 active:text-white py-2"
+          style={{ minHeight: '44px' }}
+        >
+          {showScriptSetup ? 'Hide results sync setup' : 'Set up results sync to Sheets'}
+        </button>
+        {showScriptSetup && (
+          <div className="card p-4 space-y-3">
+            <p className="text-xs text-navy-300 leading-relaxed">
+              Paste the Google Apps Script web app URL to automatically sync game results and player stats to your sheet after each game.
+              See <span className="font-mono text-gold">sheets-sync-script.js</span> in the project for setup instructions.
+            </p>
+            <input
+              type="url"
+              placeholder="https://script.google.com/macros/s/..."
+              value={scriptUrl}
+              onChange={e => setScriptUrl(e.target.value)}
+              className="w-full text-sm"
+            />
+            <button
+              onClick={async () => {
+                if (!scriptUrl.trim()) return;
+                await db.settings.put({ key: 'scriptUrl', value: scriptUrl.trim() });
+                setScriptSaved(true);
+                setTimeout(() => setScriptSaved(false), 2000);
+              }}
+              disabled={!scriptUrl.trim()}
+              className="btn-gold w-full"
+            >
+              {scriptSaved ? 'Saved!' : 'Save Script URL'}
             </button>
           </div>
         )}

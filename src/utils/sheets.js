@@ -24,7 +24,7 @@ export function extractSheetId(url) {
  */
 export async function fetchSheetCSV(sheetId, sheetName = '') {
   const sheetParam = sheetName ? `&sheet=${encodeURIComponent(sheetName)}` : '';
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv${sheetParam}`;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&single=true${sheetParam}`;
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch sheet: ${response.status} ${response.statusText}. Make sure the sheet is published to the web.`);
