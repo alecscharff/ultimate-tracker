@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import db from '../db';
 import { useGame } from '../context/GameContext';
+import { extractSheetId, fetchSheetCSV, parseScheduleFromCSV } from '../utils/sheets';
 
 const RATIO_PRESETS = [
   { label: '3bx / 2gx', patterns: [{ bx: 3, gx: 2 }] },
@@ -27,6 +28,29 @@ export default function GameSetup() {
   const [field, setField] = useState('');
   const [selectedRatio, setSelectedRatio] = useState(2); // Alt 3/2 & 2/3
   const [checkedIn, setCheckedIn] = useState(new Set());
+
+  // Schedule import state
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [scheduleUrl, setScheduleUrl] = useState('');
+  const [scheduleTab, setScheduleTab] = useState('Schedule');
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
+  const [scheduleGames, setScheduleGames] = useState(null);
+
+  // Load saved schedule URL (reuse roster sheet URL if available)
+  useEffect(() => {
+    db.settings.get('scheduleSheetUrl').then(setting => {
+      if (setting?.value) setScheduleUrl(setting.value);
+    }).catch(() => {});
+    db.settings.get('scheduleSheetTab').then(setting => {
+      if (setting?.value) setScheduleTab(setting.value);
+    }).catch(() => {
+      // Fallback: try using the roster sheet URL
+      db.settings.get('rosterSheetUrl').then(setting => {
+        if (setting?.value) setScheduleUrl(setting.value);
+      }).catch(() => {});
+    });
+  }, []);
 
   function togglePlayer(id) {
     setCheckedIn(prev => {
@@ -61,6 +85,45 @@ export default function GameSetup() {
     navigate('/game/play');
   }
 
+  async function handleFetchSchedule() {
+    setScheduleError('');
+    setScheduleGames(null);
+
+    const sheetId = extractSheetId(scheduleUrl);
+    if (!sheetId) {
+      setScheduleError('Invalid Google Sheets URL.');
+      return;
+    }
+
+    setScheduleLoading(true);
+    try {
+      await db.settings.put({ key: 'scheduleSheetUrl', value: scheduleUrl });
+      await db.settings.put({ key: 'scheduleSheetTab', value: scheduleTab });
+
+      const csv = await fetchSheetCSV(sheetId, scheduleTab);
+      const games = parseScheduleFromCSV(csv);
+
+      if (games.length === 0) {
+        setScheduleError('No games found. Expected columns: Date, Opponent, Start Time, Field');
+      } else {
+        setScheduleGames(games);
+      }
+    } catch (err) {
+      setScheduleError(err.message || 'Failed to fetch schedule. Make sure the sheet is published.');
+    } finally {
+      setScheduleLoading(false);
+    }
+  }
+
+  function selectScheduleGame(game) {
+    if (game.opponent) setOpponent(game.opponent);
+    if (game.date) setDate(game.date);
+    if (game.startTime) setStartTime(game.startTime);
+    if (game.field) setField(game.field);
+    setShowSchedule(false);
+    setScheduleGames(null);
+  }
+
   if (gameState.active) {
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center px-6">
@@ -82,11 +145,79 @@ export default function GameSetup() {
     <div className="min-h-dvh pb-8">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate('/')} className="text-navy-400 active:text-white text-2xl leading-none">&larr;</button>
+        <button onClick={() => navigate('/')} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
         <h1 className="font-display text-2xl">NEW GAME</h1>
       </div>
 
       <div className="px-4 py-4 space-y-4">
+        {/* Load from Sheet */}
+        <div>
+          <button
+            onClick={() => setShowSchedule(!showSchedule)}
+            className="text-sm text-gold font-semibold underline underline-offset-2 active:text-gold-light py-1"
+            style={{ minHeight: '44px' }}
+          >
+            {showSchedule ? 'Hide schedule import' : 'Load from Google Sheets'}
+          </button>
+
+          {showSchedule && (
+            <div className="card p-4 mt-2 space-y-3">
+              <p className="text-xs text-navy-300 leading-relaxed">
+                Import game info from your schedule sheet. Expected columns: Date, Opponent, Start Time, Field.
+                Sheet must be published to the web.
+              </p>
+              <input
+                type="url"
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={scheduleUrl}
+                onChange={e => setScheduleUrl(e.target.value)}
+                className="w-full text-sm"
+              />
+              <input
+                type="text"
+                placeholder="Sheet tab name (e.g. 'Schedule')"
+                value={scheduleTab}
+                onChange={e => setScheduleTab(e.target.value)}
+                className="w-full text-sm"
+              />
+              <button
+                onClick={handleFetchSchedule}
+                disabled={!scheduleUrl.trim() || scheduleLoading}
+                className="btn-gold w-full"
+              >
+                {scheduleLoading ? 'Fetching...' : 'Fetch Schedule'}
+              </button>
+
+              {scheduleError && (
+                <p className="text-xs text-score-red">{scheduleError}</p>
+              )}
+
+              {scheduleGames && (
+                <div className="space-y-2">
+                  <div className="text-xs text-navy-300 font-semibold">
+                    Select a game to auto-fill:
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-1.5">
+                    {scheduleGames.map((game, i) => (
+                      <button
+                        key={i}
+                        onClick={() => selectScheduleGame(game)}
+                        className="w-full card px-4 py-3 text-left active:bg-navy-700 transition-colors"
+                        style={{ minHeight: '44px' }}
+                      >
+                        <div className="text-sm font-semibold">vs {game.opponent}</div>
+                        <div className="text-xs text-navy-300">
+                          {game.date}{game.startTime ? ` at ${game.startTime}` : ''}{game.field ? ` -- ${game.field}` : ''}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Game info */}
         <div className="space-y-3">
           <input
@@ -121,7 +252,7 @@ export default function GameSetup() {
 
         {/* Gender ratio */}
         <div>
-          <label className="text-xs uppercase text-navy-400 font-semibold mb-2 block">
+          <label className="text-xs uppercase text-navy-300 font-semibold mb-2 block">
             Default Gender Ratio
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -132,8 +263,9 @@ export default function GameSetup() {
                 className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all ${
                   selectedRatio === i
                     ? 'bg-gold text-navy-950'
-                    : 'bg-navy-800 text-navy-300 border border-navy-700 active:bg-navy-700'
+                    : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
                 }`}
+                style={{ minHeight: '44px' }}
               >
                 {preset.label}
               </button>
@@ -144,15 +276,15 @@ export default function GameSetup() {
         {/* Player check-in */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs uppercase text-navy-400 font-semibold">
+            <label className="text-xs uppercase text-navy-300 font-semibold">
               Players Present ({checkedIn.size})
             </label>
             <div className="flex gap-3 text-xs">
-              <button onClick={selectAll} className="text-navy-400 underline active:text-white">All</button>
-              <button onClick={selectNone} className="text-navy-400 underline active:text-white">None</button>
+              <button onClick={selectAll} className="text-navy-300 underline active:text-white py-1 px-2" style={{ minHeight: '36px' }}>All</button>
+              <button onClick={selectNone} className="text-navy-300 underline active:text-white py-1 px-2" style={{ minHeight: '36px' }}>None</button>
             </div>
           </div>
-          <div className="text-xs text-navy-500 mb-2">
+          <div className="text-xs text-navy-400 mb-2">
             {bxCount} bx, {gxCount} gx checked in
           </div>
           <div className="space-y-1.5">
@@ -165,6 +297,7 @@ export default function GameSetup() {
                     ? 'border-gold/50 bg-navy-800'
                     : 'border-navy-700/50 bg-navy-800/40 opacity-50'
                 }`}
+                style={{ minHeight: '44px' }}
               >
                 <div className="flex items-center gap-2">
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
@@ -179,18 +312,18 @@ export default function GameSetup() {
                     )}
                   </div>
                   <span className="font-semibold">{player.name}</span>
-                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                  <span className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded ${
                     player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
                   }`}>
                     {player.gender}
                   </span>
-                  <span className="text-[10px] text-navy-400 font-mono">G{player.grade}</span>
+                  <span className="text-[11px] text-navy-300 font-mono">G{player.grade}</span>
                 </div>
               </button>
             ))}
           </div>
           {players.length === 0 && (
-            <div className="text-center text-navy-500 py-8">
+            <div className="text-center text-navy-400 py-8">
               <p>No players on roster.</p>
               <button onClick={() => navigate('/roster')} className="text-gold underline mt-2">
                 Add players first

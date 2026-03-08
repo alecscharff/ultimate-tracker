@@ -85,6 +85,25 @@ function gameReducer(state, action) {
       };
     }
 
+    case 'UNDO_SCORE': {
+      if (state.points.length === 0) return state;
+      const lastPoint = state.points[state.points.length - 1];
+      const wasUs = lastPoint.scoredBy === 'us';
+      return {
+        ...state,
+        ourScore: state.ourScore - (wasUs ? 1 : 0),
+        theirScore: state.theirScore - (wasUs ? 0 : 1),
+        points: state.points.slice(0, -1),
+        currentPointNumber: state.currentPointNumber - 1,
+        phase: 'pre-point',
+        pointStartedAt: null,
+        currentStats: lastPoint.stats || [],
+        ratioIndex: (state.ratioIndex - 1 + state.ratioPattern.length) % state.ratioPattern.length,
+        ratioOverride: null,
+        onField: lastPoint.lineup || [],
+      };
+    }
+
     case 'ADD_STAT':
       return {
         ...state,

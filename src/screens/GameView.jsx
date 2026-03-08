@@ -25,6 +25,10 @@ export default function GameView() {
   const [swapTarget, setSwapTarget] = useState(null); // playerId being swapped out
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [tick, setTick] = useState(0);
+  const [scoreConfirm, setScoreConfirm] = useState(null); // { scoredBy, scorer } pending confirmation
+  const [undoAvailable, setUndoAvailable] = useState(null); // { scoredBy, timeout }
+  const [showExport, setShowExport] = useState(false);
+  const [exportCopied, setExportCopied] = useState(false);
 
   // Clock tick
   useEffect(() => {
@@ -82,7 +86,7 @@ export default function GameView() {
   // Halftime check
   if (!state.halftimeTaken) {
     if (state.ourScore >= 6 || state.theirScore >= 6) {
-      alerts.push({ type: 'warning', message: 'Halftime — a team reached 6 points', action: 'halftime' });
+      alerts.push({ type: 'warning', message: 'Halftime -- a team reached 6 points', action: 'halftime' });
     } else if (gameElapsed >= 30) {
       const halfTarget = Math.max(state.ourScore, state.theirScore) + 1;
       alerts.push({ type: 'warning', message: `Half cap reached (30 min). Target: ${halfTarget}`, action: 'halftime' });
@@ -90,7 +94,7 @@ export default function GameView() {
   }
   // Hard cap
   if (gameElapsed >= 60) {
-    alerts.push({ type: 'danger', message: 'HARD CAP — 60 minutes. Finish current point.' });
+    alerts.push({ type: 'danger', message: 'HARD CAP -- 60 minutes. Finish current point.' });
   } else if (gameElapsed >= 55) {
     alerts.push({ type: 'warning', message: `Hard cap in ${Math.ceil(60 - gameElapsed)} min` });
   }
@@ -110,9 +114,25 @@ export default function GameView() {
     return suggestLineup(players, state.checkedInPlayerIds, currentRatio, state.points, state.equalizeBy);
   }, [showSubModal, players, state.checkedInPlayerIds, currentRatio, state.points, state.equalizeBy]);
 
+  // Undo timer - auto-dismiss after 8 seconds
+  useEffect(() => {
+    if (undoAvailable) {
+      const timer = setTimeout(() => setUndoAvailable(null), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [undoAvailable]);
+
   function handleScore(scoredBy, scorer = null) {
     dispatch({ type: 'SCORE', scoredBy, scorer });
     setScorerMode(null);
+    setScoreConfirm(null);
+    setUndoAvailable({ scoredBy });
+  }
+
+  function handleUndo() {
+    if (!undoAvailable) return;
+    dispatch({ type: 'UNDO_SCORE' });
+    setUndoAvailable(null);
   }
 
   function handleSwap(benchPlayerId) {
@@ -131,13 +151,64 @@ export default function GameView() {
     navigate('/');
   }
 
+  // Generate export data
+  function generateExportCSV() {
+    const lines = [];
+    // Game summary
+    lines.push('GAME SUMMARY');
+    lines.push(`Opponent,${state.opponent}`);
+    lines.push(`Date,${state.date}`);
+    lines.push(`Start Time,${state.startTime}`);
+    lines.push(`Field,${state.field}`);
+    lines.push(`Final Score,${state.ourScore} - ${state.theirScore}`);
+    lines.push(`Result,${state.ourScore > state.theirScore ? 'Win' : state.ourScore < state.theirScore ? 'Loss' : 'Tie'}`);
+    lines.push('');
+    // Player stats
+    lines.push('PLAYER STATS');
+    lines.push('Name,Gender,Grade,Points Played,+/-,Goals,Assists,Ds,Great Throws');
+    state.checkedInPlayerIds.forEach(pid => {
+      const p = getPlayer(pid);
+      if (!p) return;
+      const s = getPlayerStats(pid, state.points);
+      lines.push(`${p.name},${p.gender},${p.grade},${s.pointsPlayed},${s.plusMinus >= 0 ? '+' : ''}${s.plusMinus},${s.scores},${s.assists},${s.ds},${s.greatThrows}`);
+    });
+    lines.push('');
+    // Point log
+    lines.push('POINT LOG');
+    lines.push('Point,Scored By,Players On Field');
+    (state.points || []).forEach((pt, i) => {
+      const playerNames = pt.lineup.map(id => getPlayer(id)?.name || 'Unknown').join('; ');
+      lines.push(`${i + 1},${pt.scoredBy === 'us' ? 'Marmots' : state.opponent},${playerNames}`);
+    });
+    return lines.join('\n');
+  }
+
+  function handleCopyExport() {
+    const csv = generateExportCSV();
+    navigator.clipboard.writeText(csv).then(() => {
+      setExportCopied(true);
+      setTimeout(() => setExportCopied(false), 2000);
+    });
+  }
+
+  function handleDownloadCSV() {
+    const csv = generateExportCSV();
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `game_${state.date}_vs_${state.opponent.replace(/\s+/g, '_')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const benchPlayers = state.checkedInPlayerIds.filter(id => !state.onField.includes(id));
 
   if (!state.active && state.phase !== 'finished') return null;
 
   return (
     <div className="min-h-dvh flex flex-col bg-navy-950">
-      {/* Scoreboard - always visible */}
+      {/* Scoreboard - always visible (sticky via component) */}
       <Scoreboard
         ourScore={state.ourScore}
         theirScore={state.theirScore}
@@ -147,6 +218,22 @@ export default function GameView() {
         phase={state.phase}
         currentPointNumber={state.currentPointNumber}
       />
+
+      {/* Undo banner */}
+      {undoAvailable && (
+        <div className="bg-gold/20 border-b border-gold/40 px-4 py-2 flex items-center justify-between">
+          <span className="text-sm font-semibold text-gold">
+            {undoAvailable.scoredBy === 'us' ? 'Marmots' : 'Opponent'} scored
+          </span>
+          <button
+            onClick={handleUndo}
+            className="text-xs font-bold uppercase px-4 py-2 rounded-lg bg-gold text-navy-950 active:bg-gold-light"
+            style={{ minHeight: '36px' }}
+          >
+            Undo
+          </button>
+        </div>
+      )}
 
       {/* Alerts */}
       {alerts.map((alert, i) => (
@@ -180,7 +267,7 @@ export default function GameView() {
       {/* Finished overlay */}
       {state.phase === 'finished' && (
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center">
+          <div className="text-center w-full max-w-sm">
             <h2 className="font-display text-4xl mb-2">
               {state.ourScore > state.theirScore ? (
                 <span className="text-score-green">VICTORY</span>
@@ -194,7 +281,35 @@ export default function GameView() {
               {state.ourScore} - {state.theirScore}
             </div>
             <p className="text-navy-300 mb-6">vs {state.opponent}</p>
-            <button onClick={handleEndGame} className="btn-gold text-lg px-10">
+
+            {/* Export section */}
+            {!showExport ? (
+              <button
+                onClick={() => setShowExport(true)}
+                className="btn-primary w-full mb-3"
+              >
+                Export Game Data
+              </button>
+            ) : (
+              <div className="card p-4 mb-3 space-y-3 text-left">
+                <div className="text-xs uppercase text-navy-300 font-semibold">Export for Google Sheets</div>
+                <p className="text-xs text-navy-400">Copy game data and paste it directly into your Google Sheet.</p>
+                <button
+                  onClick={handleCopyExport}
+                  className="btn-gold w-full"
+                >
+                  {exportCopied ? 'Copied!' : 'Copy to Clipboard'}
+                </button>
+                <button
+                  onClick={handleDownloadCSV}
+                  className="btn-primary w-full"
+                >
+                  Download CSV
+                </button>
+              </div>
+            )}
+
+            <button onClick={handleEndGame} className="btn-gold text-lg px-10 w-full">
               Save & Exit
             </button>
           </div>
@@ -214,11 +329,12 @@ export default function GameView() {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+                className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
                   tab === t.id
                     ? 'text-gold border-b-2 border-gold'
-                    : 'text-navy-400 active:text-white'
+                    : 'text-navy-300 active:text-white'
                 }`}
+                style={{ minHeight: '44px' }}
               >
                 {t.label}
               </button>
@@ -231,8 +347,8 @@ export default function GameView() {
               {/* Score buttons or scorer select */}
               {scorerMode ? (
                 <div className="space-y-2">
-                  <div className="text-sm text-navy-400 text-center">
-                    Who scored? (optional — tap Skip to skip)
+                  <div className="text-sm text-navy-300 text-center">
+                    Who scored? (optional -- tap Skip to skip)
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {state.onField.map(pid => {
@@ -242,6 +358,7 @@ export default function GameView() {
                           key={pid}
                           onClick={() => handleScore(scorerMode, pid)}
                           className="card px-3 py-3 text-sm font-semibold active:bg-navy-700 text-center"
+                          style={{ minHeight: '44px' }}
                         >
                           {p.name}
                         </button>
@@ -252,11 +369,12 @@ export default function GameView() {
                     onClick={() => handleScore(scorerMode)}
                     className="btn-primary w-full"
                   >
-                    Skip — No Attribution
+                    Skip -- No Attribution
                   </button>
                   <button
                     onClick={() => setScorerMode(null)}
-                    className="text-sm text-navy-500 w-full text-center py-2"
+                    className="text-sm text-navy-400 w-full text-center py-3"
+                    style={{ minHeight: '44px' }}
                   >
                     Cancel
                   </button>
@@ -287,10 +405,10 @@ export default function GameView() {
               {/* Current lineup */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs uppercase text-navy-400 font-semibold">
+                  <span className="text-xs uppercase text-navy-300 font-semibold">
                     On Field ({state.onField.length})
                   </span>
-                  <span className="text-xs text-navy-500">
+                  <span className="text-xs text-navy-400">
                     {currentRatio.bx}bx / {currentRatio.gx}gx
                   </span>
                 </div>
@@ -327,10 +445,11 @@ export default function GameView() {
                         <button
                           key={pid}
                           onClick={() => handleSwap(pid)}
-                          className="card px-3 py-2.5 text-left active:bg-navy-700"
+                          className="card px-3 py-3 text-left active:bg-navy-700"
+                          style={{ minHeight: '44px' }}
                         >
                           <div className="text-sm font-semibold">{p.name}</div>
-                          <div className="text-[10px] text-navy-400">
+                          <div className="text-[11px] text-navy-300">
                             {stats?.pointsPlayed || 0}pt played
                           </div>
                         </button>
@@ -339,7 +458,8 @@ export default function GameView() {
                   </div>
                   <button
                     onClick={() => setSwapTarget(null)}
-                    className="text-xs text-navy-500 mt-2 w-full text-center py-1"
+                    className="text-sm text-navy-400 mt-2 w-full text-center py-2"
+                    style={{ minHeight: '44px' }}
                   >
                     Cancel swap
                   </button>
@@ -349,7 +469,7 @@ export default function GameView() {
               {/* Current point stats */}
               {state.phase === 'playing' && state.currentStats.length > 0 && (
                 <div>
-                  <div className="text-xs uppercase text-navy-400 font-semibold mb-1">Point Stats</div>
+                  <div className="text-xs uppercase text-navy-300 font-semibold mb-1">Point Stats</div>
                   <div className="flex flex-wrap gap-1.5">
                     {state.currentStats.map((s, i) => {
                       const p = getPlayer(s.playerId);
@@ -357,9 +477,10 @@ export default function GameView() {
                         <span
                           key={i}
                           onClick={() => dispatch({ type: 'REMOVE_STAT', playerId: s.playerId, statType: s.type })}
-                          className="bg-navy-800 text-xs px-2 py-1 rounded-lg text-navy-300 active:bg-navy-700 cursor-pointer"
+                          className="bg-navy-800 text-xs px-3 py-2 rounded-lg text-navy-200 active:bg-navy-700 cursor-pointer"
+                          style={{ minHeight: '36px', display: 'inline-flex', alignItems: 'center' }}
                         >
-                          {p?.name}: {s.type} &times;
+                          {p?.name}: {s.type} x
                         </span>
                       );
                     })}
@@ -374,7 +495,7 @@ export default function GameView() {
             <div className="p-4 space-y-4">
               {/* Ratio override */}
               <div>
-                <div className="text-xs uppercase text-navy-400 font-semibold mb-2">
+                <div className="text-xs uppercase text-navy-300 font-semibold mb-2">
                   Ratio for Point {state.currentPointNumber}
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -389,9 +510,10 @@ export default function GameView() {
                           const suggested = suggestLineup(players, state.checkedInPlayerIds, r, state.points, state.equalizeBy);
                           dispatch({ type: 'SET_LINEUP', lineup: suggested });
                         }}
-                        className={`px-3 py-2 rounded-lg text-sm font-semibold ${
-                          isActive ? 'bg-gold text-navy-950' : 'bg-navy-800 text-navy-300 active:bg-navy-700'
+                        className={`px-4 py-2.5 rounded-lg text-sm font-semibold ${
+                          isActive ? 'bg-gold text-navy-950' : 'bg-navy-800 text-navy-200 active:bg-navy-700'
                         }`}
+                        style={{ minHeight: '44px' }}
                       >
                         {r.bx}b/{r.gx}g
                       </button>
@@ -402,10 +524,11 @@ export default function GameView() {
 
               {/* Equalize toggle */}
               <div className="flex items-center gap-3">
-                <span className="text-xs uppercase text-navy-400 font-semibold">Equalize by:</span>
+                <span className="text-xs uppercase text-navy-300 font-semibold">Equalize by:</span>
                 <button
                   onClick={() => dispatch({ type: 'SET_EQUALIZE', equalizeBy: state.equalizeBy === 'points' ? 'time' : 'points' })}
-                  className="text-sm font-semibold text-gold"
+                  className="text-sm font-semibold text-gold py-2"
+                  style={{ minHeight: '44px' }}
                 >
                   {state.equalizeBy === 'points' ? 'Points Played' : 'Minutes Played'} (tap to toggle)
                 </button>
@@ -413,8 +536,8 @@ export default function GameView() {
 
               {/* Current lineup */}
               <div>
-                <div className="text-xs uppercase text-navy-400 font-semibold mb-2">
-                  Current Lineup — Point {state.currentPointNumber}
+                <div className="text-xs uppercase text-navy-300 font-semibold mb-2">
+                  Current Lineup -- Point {state.currentPointNumber}
                 </div>
                 <div className="space-y-1.5">
                   {state.onField.map(pid => {
@@ -448,8 +571,8 @@ export default function GameView() {
               {/* Next up preview */}
               {nextPreviews.map((preview, i) => (
                 <div key={i}>
-                  <div className="text-xs uppercase text-navy-400 font-semibold mb-2">
-                    Preview — Point {state.currentPointNumber + i + 1} ({preview.ratio.bx}b/{preview.ratio.gx}g)
+                  <div className="text-xs uppercase text-navy-300 font-semibold mb-2">
+                    Preview -- Point {state.currentPointNumber + i + 1} ({preview.ratio.bx}b/{preview.ratio.gx}g)
                   </div>
                   <div className="space-y-1">
                     {preview.lineup.map(pid => {
@@ -457,7 +580,7 @@ export default function GameView() {
                       return player ? (
                         <div key={pid} className="card px-3 py-2 text-sm flex items-center gap-2 opacity-60">
                           <span>{player.name}</span>
-                          <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${
+                          <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded ${
                             player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
                           }`}>{player.gender}</span>
                         </div>
@@ -473,7 +596,7 @@ export default function GameView() {
           {tab === 'roster' && (
             <div className="p-4 space-y-2">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs uppercase text-navy-400 font-semibold">
+                <span className="text-xs uppercase text-navy-300 font-semibold">
                   All Players ({state.checkedInPlayerIds.length} checked in)
                 </span>
               </div>
@@ -489,14 +612,15 @@ export default function GameView() {
                       className={`card px-4 py-3 flex items-center justify-between ${
                         isOnField ? 'border-gold/30' : ''
                       }`}
+                      style={{ minHeight: '44px' }}
                     >
                       <div className="flex items-center gap-2">
                         {isOnField && <div className="w-1.5 h-1.5 rounded-full bg-gold" />}
                         <span className="font-semibold text-sm">{player.name}</span>
-                        <span className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded ${
+                        <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded ${
                           player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
                         }`}>{player.gender}</span>
-                        <span className="text-[9px] text-navy-400 font-mono">G{player.grade}</span>
+                        <span className="text-[10px] text-navy-300 font-mono">G{player.grade}</span>
                       </div>
                       <div className="flex items-center gap-3 text-xs">
                         <span className="text-navy-300">{stats?.pointsPlayed || 0} pts</span>
@@ -508,10 +632,11 @@ export default function GameView() {
                         {stats?.scores > 0 && <span className="text-gold">{stats.scores}g</span>}
                         <button
                           onClick={() => dispatch({ type: 'CHECK_OUT_PLAYER', playerId: player.id })}
-                          className="text-navy-500 active:text-score-red ml-1"
+                          className="text-navy-400 active:text-score-red ml-1 px-2 py-2"
+                          style={{ minHeight: '36px', minWidth: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Check out"
                         >
-                          &times;
+                          x
                         </button>
                       </div>
                     </div>
@@ -535,7 +660,8 @@ export default function GameView() {
                 ) : (
                   <button
                     onClick={() => setShowEndConfirm(true)}
-                    className="w-full text-sm text-navy-500 py-3 active:text-score-red"
+                    className="w-full text-sm text-navy-400 py-3 active:text-score-red"
+                    style={{ minHeight: '44px' }}
                   >
                     End Game Early
                   </button>

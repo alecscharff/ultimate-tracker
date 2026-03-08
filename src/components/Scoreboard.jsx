@@ -19,16 +19,16 @@ export default function Scoreboard({ ourScore, theirScore, opponent, gameStarted
   const gameMinutes = gameElapsed / 60;
 
   return (
-    <div className="bg-navy-900 border-b border-navy-700">
+    <div className="bg-navy-900 border-b border-navy-700 sticky top-0 z-20">
       {/* Score */}
       <div className="flex items-center justify-center gap-3 pt-3 pb-1 px-4">
         <div className="text-right flex-1">
-          <div className="text-xs uppercase tracking-wider text-navy-400 font-semibold">Marmots</div>
+          <div className="text-xs uppercase tracking-wider text-navy-300 font-semibold">Marmots</div>
           <div className="font-display text-5xl leading-none text-white">{ourScore}</div>
         </div>
         <div className="text-navy-500 font-display text-3xl px-2">-</div>
         <div className="text-left flex-1">
-          <div className="text-xs uppercase tracking-wider text-navy-400 font-semibold">{opponent || 'Opponent'}</div>
+          <div className="text-xs uppercase tracking-wider text-navy-300 font-semibold">{opponent || 'Opponent'}</div>
           <div className="font-display text-5xl leading-none text-white">{theirScore}</div>
         </div>
       </div>
@@ -36,14 +36,14 @@ export default function Scoreboard({ ourScore, theirScore, opponent, gameStarted
       {/* Clock row */}
       <div className="flex items-center justify-center gap-4 pb-2 text-sm">
         <div className="flex items-center gap-1.5">
-          <span className="text-navy-400">Game</span>
+          <span className="text-navy-300">Game</span>
           <span className={`font-mono font-semibold ${gameMinutes >= 55 ? 'text-score-red' : gameMinutes >= 25 ? 'text-gold' : 'text-white'}`}>
             {formatTime(gameElapsed)}
           </span>
         </div>
         {phase === 'playing' && (
           <div className="flex items-center gap-1.5">
-            <span className="text-navy-400">Point</span>
+            <span className="text-navy-300">Point</span>
             <span className={`font-mono font-semibold ${pointElapsed >= 540 ? 'text-gold animate-pulse' : 'text-white'}`}>
               {formatTime(pointElapsed)}
             </span>

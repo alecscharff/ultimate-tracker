@@ -15,7 +15,8 @@ export default function AlertBanner({ type, message, onAction, actionLabel }) {
       {onAction && actionLabel && (
         <button
           onClick={onAction}
-          className="text-xs font-bold uppercase px-3 py-1.5 rounded-lg bg-white/10 active:bg-white/20"
+          className="text-xs font-bold uppercase px-4 py-2.5 rounded-lg bg-white/10 active:bg-white/20"
+          style={{ minHeight: '44px' }}
         >
           {actionLabel}
         </button>

@@ -5,17 +5,28 @@
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  html {
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply antialiased;
+    @apply antialiased text-[15px];
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   input, select, textarea {
     @apply bg-navy-800 text-white border border-navy-600 rounded-lg px-3 py-3 text-base
       focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold;
+    font-size: 16px; /* prevent iOS zoom on input focus */
   }
 }
 
@@ -24,6 +35,7 @@
     @apply font-semibold rounded-xl px-6 py-4 text-base transition-all duration-150
       active:scale-95 disabled:opacity-40 disabled:active:scale-100
       flex items-center justify-center gap-2;
+    min-height: 44px;
   }
 
   .btn-primary {
@@ -35,16 +47,77 @@
   }
 
   .btn-score-us {
-    @apply btn bg-score-green text-white text-lg font-bold;
-    min-height: 56px;
+    @apply btn bg-score-green text-white text-xl font-bold;
+    min-height: 64px;
   }
 
   .btn-score-them {
-    @apply btn bg-score-red text-white text-lg font-bold;
-    min-height: 56px;
+    @apply btn bg-score-red text-white text-xl font-bold;
+    min-height: 64px;
   }
 
   .card {
     @apply bg-navy-800 rounded-xl border border-navy-700;
   }
+}
+
+/* Loading splash */
+#loading-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #080f1a;
+  color: #f5a623;
+  font-family: 'Bebas Neue', Impact, sans-serif;
+  font-size: 2.5rem;
+  letter-spacing: 0.05em;
+  transition: opacity 0.3s ease-out;
+}
+
+#loading-splash.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#loading-splash .spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #1e3a5f;
+  border-top-color: #f5a623;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-top: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Landscape hint */
+@media (orientation: landscape) and (max-height: 500px) {
+  body::after {
+    content: 'Rotate to portrait for best experience';
+    position: fixed;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #142a45;
+    color: #8badd4;
+    font-size: 12px;
+    padding: 6px 16px;
+    border-radius: 999px;
+    z-index: 9998;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }

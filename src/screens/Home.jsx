@@ -17,7 +17,7 @@ export default function Home() {
           MARMOTS
         </h2>
         <div className="mt-3 h-0.5 w-20 mx-auto bg-gradient-to-r from-transparent via-gold to-transparent" />
-        <p className="text-navy-400 text-sm mt-3 uppercase tracking-widest">Ultimate Tracker</p>
+        <p className="text-navy-300 text-sm mt-3 uppercase tracking-widest">Ultimate Tracker</p>
       </div>
 
       {/* Active game banner */}

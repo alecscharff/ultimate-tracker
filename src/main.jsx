@@ -14,3 +14,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// Dismiss loading splash
+const splash = document.getElementById('loading-splash');
+if (splash) {
+  splash.classList.add('fade-out');
+  setTimeout(() => splash.remove(), 400);
+}

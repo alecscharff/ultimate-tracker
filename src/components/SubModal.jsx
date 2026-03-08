@@ -7,7 +7,7 @@ export default function SubModal({ isOpen, suggestedLineup, players, currentLine
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-navy-900 border-t border-gold w-full max-w-lg rounded-t-2xl p-5 pb-8 animate-slide-up">
+      <div className="bg-navy-900 border-t border-gold w-full max-w-lg rounded-t-2xl p-5 animate-slide-up" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}>
         <div className="flex items-center gap-2 mb-4">
           <div className="w-2 h-2 rounded-full bg-gold animate-pulse" />
           <h3 className="font-display text-2xl text-gold">Sub Suggestion</h3>
