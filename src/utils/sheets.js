@@ -17,19 +17,45 @@ export function extractSheetId(url) {
 }
 
 /**
- * Fetch a published Google Sheet tab as CSV text.
+ * Fetch a Google Sheet tab as CSV text.
+ * Tries the gviz/tq API first (works for "anyone with link can view" sheets),
+ * then falls back to /pub CSV (requires "published to web").
  * @param {string} sheetId - The Google Sheets document ID
  * @param {string} sheetName - The tab/sheet name (default: first sheet)
  * @returns {Promise<string>} CSV text
  */
 export async function fetchSheetCSV(sheetId, sheetName = '') {
   const sheetParam = sheetName ? `&sheet=${encodeURIComponent(sheetName)}` : '';
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&single=true${sheetParam}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch sheet: ${response.status} ${response.statusText}. Make sure the sheet is published to the web.`);
+
+  // Try gviz/tq first — works when sheet is shared as "anyone with link can view"
+  const gvizUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv${sheetParam}`;
+  try {
+    const res = await fetch(gvizUrl);
+    if (res.ok) {
+      const text = await res.text();
+      // gviz returns HTML login page (not CSV) when sheet is private
+      if (!text.trimStart().startsWith('<')) return text;
+    }
+  } catch (_) {
+    // network error, fall through
   }
-  return response.text();
+
+  // Fall back to /pub CSV — requires sheet to be published to the web
+  const pubUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/pub?output=csv&single=true${sheetParam}`;
+  const response = await fetch(pubUrl);
+  if (!response.ok) {
+    throw new Error(
+      `Could not access the sheet (${response.status}). Make sure it is shared as "Anyone with the link can view" ` +
+      `(Share button > Change to anyone with the link), or published to the web (File > Share > Publish to web).`
+    );
+  }
+  const text = await response.text();
+  if (text.trimStart().startsWith('<')) {
+    throw new Error(
+      `Sheet is not accessible. Share it as "Anyone with the link can view" (Share button > Change to anyone with the link).`
+    );
+  }
+  return text;
 }
 
 /**

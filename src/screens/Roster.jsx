@@ -123,7 +123,7 @@ export default function Roster() {
         setSheetPreview(parsed);
       }
     } catch (err) {
-      setSheetError(err.message || 'Failed to fetch sheet. Make sure it is published to the web (File > Share > Publish to web).');
+      setSheetError(err.message || 'Failed to fetch sheet. Share it as "Anyone with the link can view" or publish it to the web.');
     } finally {
       setSheetLoading(false);
     }
@@ -204,8 +204,8 @@ export default function Roster() {
         {showSheetImport && (
           <div className="card p-4 space-y-3">
             <p className="text-xs text-navy-300 leading-relaxed">
-              Paste your Google Sheets URL below. The sheet must be published to the web
-              (File &gt; Share &gt; Publish to web). Expected columns: Name, Gender (bx/gx), Grade (3/4/5).
+              Paste your Google Sheets URL below. The sheet must be shared as "Anyone with the link can view"
+              (Share button &gt; Change to anyone with the link). Expected columns: Name, Gender (bx/gx), Grade (3/4/5).
             </p>
             <input
               type="url"
