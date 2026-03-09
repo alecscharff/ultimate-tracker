@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
-import db from '../db';
+import { useAuth } from '../contexts/AuthContext';
+import { usePlayers } from '../hooks/usePlayers';
+import { addPlayer, updatePlayer, deletePlayer, bulkAddPlayers } from '../services/playerService';
+import { getSetting, setSetting } from '../services/settingsService';
 import { extractSheetId, fetchSheetCSV, parseRosterFromCSV } from '../utils/sheets';
 
 export default function Roster() {
   const navigate = useNavigate();
-  const players = useLiveQuery(() => db.players.orderBy('name').toArray()) || [];
+  const { signOut } = useAuth();
+  const players = usePlayers();
 
   const [name, setName] = useState('');
   const [gender, setGender] = useState('bx');
@@ -31,15 +34,9 @@ export default function Roster() {
 
   // Load saved URLs
   useEffect(() => {
-    db.settings.get('rosterSheetUrl').then(setting => {
-      if (setting?.value) setSheetUrl(setting.value);
-    }).catch(() => {});
-    db.settings.get('rosterSheetTab').then(setting => {
-      if (setting?.value) setSheetTab(setting.value);
-    }).catch(() => {});
-    db.settings.get('scriptUrl').then(setting => {
-      if (setting?.value) setScriptUrl(setting.value);
-    }).catch(() => {});
+    getSetting('rosterSheetUrl').then(v => { if (v) setSheetUrl(v); }).catch(() => {});
+    getSetting('rosterSheetTab').then(v => { if (v) setSheetTab(v); }).catch(() => {});
+    getSetting('scriptUrl').then(v => { if (v) setScriptUrl(v); }).catch(() => {});
   }, []);
 
   async function handleSubmit(e) {
@@ -47,10 +44,10 @@ export default function Roster() {
     if (!name.trim()) return;
 
     if (editingId) {
-      await db.players.update(editingId, { name: name.trim(), gender, grade: parseInt(grade) });
+      await updatePlayer(editingId, { name: name.trim(), gender, grade: parseInt(grade) });
       setEditingId(null);
     } else {
-      await db.players.add({ name: name.trim(), gender, grade: parseInt(grade) });
+      await addPlayer({ name: name.trim(), gender, grade: parseInt(grade) });
     }
     setName('');
     setGender('bx');
@@ -72,7 +69,7 @@ export default function Roster() {
   }
 
   async function handleDelete(id) {
-    await db.players.delete(id);
+    await deletePlayer(id);
     if (editingId === id) cancelEdit();
   }
 
@@ -90,7 +87,7 @@ export default function Roster() {
       }
     }
     if (newPlayers.length > 0) {
-      await db.players.bulkAdd(newPlayers);
+      await bulkAddPlayers(newPlayers);
       setImportText('');
       setShowImport(false);
     }
@@ -109,10 +106,8 @@ export default function Roster() {
     setSheetLoading(true);
     try {
       // Save the URL for next time
-      await db.settings.put({ key: 'rosterSheetUrl', value: sheetUrl });
-      if (sheetTab) {
-        await db.settings.put({ key: 'rosterSheetTab', value: sheetTab });
-      }
+      await setSetting('rosterSheetUrl', sheetUrl);
+      if (sheetTab) await setSetting('rosterSheetTab', sheetTab);
 
       const csv = await fetchSheetCSV(sheetId, sheetTab);
       const parsed = parseRosterFromCSV(csv);
@@ -137,7 +132,7 @@ export default function Roster() {
     const newPlayers = sheetPreview.filter(p => !existingNames.has(p.name.toLowerCase()));
 
     if (newPlayers.length > 0) {
-      await db.players.bulkAdd(newPlayers);
+      await bulkAddPlayers(newPlayers);
     }
 
     const skipped = sheetPreview.length - newPlayers.length;
@@ -156,6 +151,13 @@ export default function Roster() {
         <button onClick={() => navigate('/')} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
         <h1 className="font-display text-2xl">ROSTER</h1>
         <span className="text-navy-300 text-sm ml-auto">{players.length} players</span>
+        <button
+          onClick={signOut}
+          className="text-xs text-navy-400 active:text-white px-2 py-2"
+          style={{ minHeight: '44px' }}
+        >
+          Sign out
+        </button>
       </div>
 
       {/* Add/Edit form */}
@@ -340,7 +342,7 @@ export default function Roster() {
             <button
               onClick={async () => {
                 if (!scriptUrl.trim()) return;
-                await db.settings.put({ key: 'scriptUrl', value: scriptUrl.trim() });
+                await setSetting('scriptUrl', scriptUrl.trim());
                 setScriptSaved(true);
                 setTimeout(() => setScriptSaved(false), 2000);
               }}

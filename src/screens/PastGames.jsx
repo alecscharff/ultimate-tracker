@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
-import db from '../db';
+import { usePlayers } from '../hooks/usePlayers';
+import { useGames } from '../hooks/useGames';
 import { getPlayerStats } from '../utils/lineup';
 
 export default function PastGames() {
   const navigate = useNavigate();
-  const games = useLiveQuery(() => db.games.reverse().toArray()) || [];
-  const players = useLiveQuery(() => db.players.toArray()) || [];
+  const games = useGames();
+  const players = usePlayers();
   const [expandedId, setExpandedId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 

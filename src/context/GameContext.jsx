@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import db from '../db';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const GameContext = createContext(null);
 
@@ -170,27 +171,26 @@ function gameReducer(state, action) {
 export function GameProvider({ children }) {
   const [state, rawDispatch] = useReducer(gameReducer, initialState);
 
-  // Restore active game on mount
+  // Restore active game on mount (session recovery via Firestore offline cache)
   useEffect(() => {
-    db.activeGame.get('current').then(saved => {
-      if (saved?.state) {
-        rawDispatch({ type: 'RESTORE', state: saved.state });
+    getDoc(doc(db, 'activeGame', 'current')).then(snap => {
+      if (snap.exists()) {
+        rawDispatch({ type: 'RESTORE', state: snap.data() });
       }
-    });
+    }).catch(() => {});
   }, []);
 
-  // Persist on every state change
-  const dispatch = useCallback(
-    action => {
-      rawDispatch(action);
-    },
-    []
-  );
+  const dispatch = useCallback(action => {
+    rawDispatch(action);
+  }, []);
 
+  // Persist on every state change (debounced to limit Firestore writes)
   useEffect(() => {
-    if (state.active) {
-      db.activeGame.put({ id: 'current', state });
-    }
+    if (!state.active) return;
+    const timer = setTimeout(() => {
+      setDoc(doc(db, 'activeGame', 'current'), state).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
   }, [state]);
 
   const saveAndEndGame = useCallback(async () => {
@@ -209,8 +209,8 @@ export function GameProvider({ children }) {
       endedAt: Date.now(),
       status: 'completed',
     };
-    await db.games.put(gameRecord);
-    await db.activeGame.delete('current');
+    await setDoc(doc(db, 'games', String(state.id)), gameRecord);
+    await deleteDoc(doc(db, 'activeGame', 'current'));
     rawDispatch({ type: 'CLEAR_GAME' });
   }, [state]);
 

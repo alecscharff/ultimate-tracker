@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
-import db from '../db';
+import { usePlayers } from '../hooks/usePlayers';
 import { useGame } from '../context/GameContext';
 import { suggestLineup, previewLineups, getPlayerStats } from '../utils/lineup';
 import { syncGameToSheet } from '../utils/sheetsSync';
@@ -18,7 +17,7 @@ const RATIO_OPTIONS = [
 export default function GameView() {
   const navigate = useNavigate();
   const { state, dispatch, saveAndEndGame } = useGame();
-  const players = useLiveQuery(() => db.players.toArray()) || [];
+  const players = usePlayers();
 
   const [tab, setTab] = useState('game'); // game | lineup | roster
   const [showSubModal, setShowSubModal] = useState(false);

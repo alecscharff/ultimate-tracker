@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
-import db from '../db';
+import { usePlayers } from '../hooks/usePlayers';
+import { getSetting, setSetting } from '../services/settingsService';
 import { useGame } from '../context/GameContext';
 import { extractSheetId, fetchSheetCSV, parseScheduleFromCSV } from '../utils/sheets';
 
@@ -18,7 +18,7 @@ const RATIO_PRESETS = [
 export default function GameSetup() {
   const navigate = useNavigate();
   const { state: gameState, dispatch } = useGame();
-  const players = useLiveQuery(() => db.players.orderBy('name').toArray()) || [];
+  const players = usePlayers();
 
   const [opponent, setOpponent] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -39,17 +39,11 @@ export default function GameSetup() {
 
   // Load saved schedule URL (reuse roster sheet URL if available)
   useEffect(() => {
-    db.settings.get('scheduleSheetUrl').then(setting => {
-      if (setting?.value) setScheduleUrl(setting.value);
+    getSetting('scheduleSheetUrl').then(v => { if (v) setScheduleUrl(v); }).catch(() => {});
+    getSetting('scheduleSheetTab').then(v => {
+      if (v) setScheduleTab(v);
+      else getSetting('rosterSheetUrl').then(v2 => { if (v2) setScheduleUrl(v2); }).catch(() => {});
     }).catch(() => {});
-    db.settings.get('scheduleSheetTab').then(setting => {
-      if (setting?.value) setScheduleTab(setting.value);
-    }).catch(() => {
-      // Fallback: try using the roster sheet URL
-      db.settings.get('rosterSheetUrl').then(setting => {
-        if (setting?.value) setScheduleUrl(setting.value);
-      }).catch(() => {});
-    });
   }, []);
 
   function togglePlayer(id) {
@@ -97,8 +91,8 @@ export default function GameSetup() {
 
     setScheduleLoading(true);
     try {
-      await db.settings.put({ key: 'scheduleSheetUrl', value: scheduleUrl });
-      await db.settings.put({ key: 'scheduleSheetTab', value: scheduleTab });
+      await setSetting('scheduleSheetUrl', scheduleUrl);
+      await setSetting('scheduleSheetTab', scheduleTab);
 
       const csv = await fetchSheetCSV(sheetId, scheduleTab);
       const games = parseScheduleFromCSV(csv);
