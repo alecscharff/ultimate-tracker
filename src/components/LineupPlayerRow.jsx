@@ -1,9 +1,8 @@
 function formatBenchTime(milliseconds) {
   if (!milliseconds || milliseconds <= 0) return null;
-  // Round to nearest 5 minutes
-  const minutes = Math.round(milliseconds / 60000 / 5) * 5;
-  if (minutes === 0) return null; // Don't show if < 2.5 min
-  return `${minutes}m since last played`;
+  const minutes = Math.round(milliseconds / 60000);
+  if (minutes < 1) return null;
+  return `last ${minutes}m ago`;
 }
 
 export default function LineupPlayerRow({
@@ -18,16 +17,20 @@ export default function LineupPlayerRow({
   onStatTap,
   onCheckInToggle,
   isCheckedIn,
+  hasWarning,
+  onInfoTap,
+  isUnavailable,
 }) {
   if (!player) return null;
 
   const genderColor = player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500';
-  const benchLabel = !isOnField ? formatBenchTime(benchTimeMs) : null;
+  const benchLabel = formatBenchTime(benchTimeMs);
   const totalMinutes = totalPlayingTimeMs ? Math.round(totalPlayingTimeMs / 60000) : null;
-  const rowOpacity = onCheckInToggle !== undefined && !isCheckedIn ? 'opacity-40' : '';
+  const rowOpacity = (onCheckInToggle !== undefined && !isCheckedIn) || isUnavailable ? 'opacity-40' : '';
+  const warningBorder = hasWarning ? 'border-l-2 border-yellow-500' : '';
 
   return (
-    <div className={`bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px] ${rowOpacity}`}>
+    <div className={`bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px] ${rowOpacity} ${warningBorder}`}>
       {/* Gender dot */}
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${genderColor}`} />
 
@@ -39,11 +42,8 @@ export default function LineupPlayerRow({
 
       {/* Right section: stat badges + time info */}
       <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-        {/* Top row: points played + stat badges */}
+        {/* Top row: stat badges */}
         <div className="flex items-center gap-1">
-          <span className="text-xs text-navy-300">{pointsPlayed} pts</span>
-
-          {/* Stat badges — only render if count > 0 */}
           {statCounts.D > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
               D {statCounts.D}
@@ -60,15 +60,22 @@ export default function LineupPlayerRow({
             </span>
           )}
         </div>
-
-        {/* Bottom row: bench time + total played */}
-        {(benchLabel || totalMinutes) && (
-          <div className="flex items-center gap-1 text-xs text-navy-400">
-            {benchLabel && <span className="truncate">{benchLabel}</span>}
-            {benchLabel && totalMinutes && <span>|</span>}
-            {totalMinutes && <span>{totalMinutes}m total</span>}
-          </div>
-        )}
+        {/* Bottom row: combined stat line */}
+        <div className="flex items-center gap-1 text-[11px] text-navy-400">
+          <span>{pointsPlayed} pts</span>
+          {totalMinutes !== null && (
+            <>
+              <span className="text-navy-600">|</span>
+              <span>{totalMinutes}m played</span>
+            </>
+          )}
+          {benchLabel && (
+            <>
+              <span className="text-navy-600">|</span>
+              <span>{benchLabel}</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Stat edit button — only if onStatTap provided */}
@@ -80,6 +87,18 @@ export default function LineupPlayerRow({
           title="Edit stats"
         >
           +
+        </button>
+      )}
+
+      {/* Info button */}
+      {onInfoTap && (
+        <button
+          onClick={onInfoTap}
+          className="flex-shrink-0 text-navy-400 active:text-gold text-xs font-bold leading-none flex items-center justify-center rounded-full border border-navy-600 active:border-gold transition-colors"
+          style={{ minHeight: 28, minWidth: 28 }}
+          title="Player info"
+        >
+          i
         </button>
       )}
 

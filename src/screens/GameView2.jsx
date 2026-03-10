@@ -14,7 +14,7 @@ import GameSummaryModal from '../components/GameSummaryModal';
 
 export default function GameView2() {
   const navigate = useNavigate();
-  const { state, dispatch, saveAndEndGame } = useGame();
+  const { state, dispatch, saveAndEndGame, deleteAndExitGame } = useGame();
   const players = usePlayers();
 
   const [selectedPointIndex, setSelectedPointIndex] = useState(null); // null = current live point
@@ -23,6 +23,7 @@ export default function GameView2() {
   const [undoAvailable, setUndoAvailable] = useState(null);
   const [tick, setTick] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Clock tick for elapsed time
   useEffect(() => {
@@ -171,6 +172,11 @@ export default function GameView2() {
     setSelectedPointIndex(index);
   }
 
+  async function handleDeleteGame() {
+    await deleteAndExitGame();
+    navigate('/');
+  }
+
   function handleShareLink() {
     const url = `${window.location.origin}/watch/${state.id}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -229,14 +235,21 @@ export default function GameView2() {
         currentPointNumber={state.currentPointNumber}
       />
 
-      {/* Share live link */}
-      <div className="flex justify-end px-4 py-1">
+      {/* Share live link + Exit & Delete */}
+      <div className="flex justify-between px-4 py-1">
+        <button
+          onClick={() => setShowDeleteConfirm(true)}
+          className="text-xs text-score-red/50 flex items-center gap-1 active:text-score-red transition-colors"
+          style={{ minHeight: 32 }}
+        >
+          Exit & Delete
+        </button>
         <button
           onClick={handleShareLink}
           className="text-xs text-navy-300 flex items-center gap-1 active:text-gold transition-colors"
           style={{ minHeight: 32 }}
         >
-          {copied ? <span className="text-gold font-semibold">Link Copied!</span> : <span>📤 Share Live Link</span>}
+          {copied ? <span className="text-gold font-semibold">Link Copied!</span> : <span>Share Live Link</span>}
         </button>
       </div>
 
@@ -324,6 +337,36 @@ export default function GameView2() {
           onConfirmEnd={confirmEndGame}
           onGoBack={() => setShowGameSummary(false)}
         />
+      )}
+
+      {/* Delete game confirmation modal */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-navy-800 rounded-xl p-5 max-w-sm mx-4 w-full space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-score-red">Exit & Delete Game?</p>
+            <p className="text-xs text-navy-300 leading-relaxed">
+              This will end the current game and remove it from your history. Game data is saved with a deleted flag but will not appear in past games.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowDeleteConfirm(false)} className="btn-primary flex-1" style={{ minHeight: 44 }}>
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteGame}
+                className="flex-1 py-3 rounded-lg font-semibold text-sm bg-score-red text-white active:bg-score-red/80 transition-colors"
+                style={{ minHeight: 44 }}
+              >
+                Delete & Exit
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

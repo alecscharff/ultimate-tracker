@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { ACTIONS } from '../context/GameContext';
 import { getDetailedPlayerStats, suggestLineup } from '../utils/lineup';
 import LineupPlayerRow from './LineupPlayerRow';
 import PlayerStatModal from './PlayerStatModal';
+import PlayerInfoModal from './PlayerInfoModal';
 
 const RATIO_OPTIONS = [
   { bx: 4, gx: 1 },
@@ -37,6 +38,7 @@ export default function PointDetailView({
     ratioOverride,
     equalizeBy,
     currentStats,
+    unavailablePlayerIds = [],
   } = gameState;
 
   // Determine what we're viewing
@@ -50,6 +52,18 @@ export default function PointDetailView({
   // Local state for future-point ratio override (view-only, not persisted to game state)
   const [overrideRatioForFuture, setOverrideRatioForFuture] = useState(null);
   const [showRatioModal, setShowRatioModal] = useState(false);
+
+  // Info modal state
+  const [infoModalPlayerId, setInfoModalPlayerId] = useState(null);
+
+  // Past point edit state
+  const [editingPastPoint, setEditingPastPoint] = useState(false);
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
+
+  useEffect(() => {
+    setEditingPastPoint(false);
+    setShowEditConfirm(false);
+  }, [selectedPointIndex]);
 
   // When viewing a future point, compute a projected lineup for the active override ratio
   const projectedLineup = useMemo(() => {
@@ -77,23 +91,25 @@ export default function PointDetailView({
   const benchPlayerIds = useMemo(() => {
     if (!isCurrentPoint) return [];
     const onFieldSet = new Set(displayLineupIds);
-    const bench = checkedInPlayerIds.filter(id => !onFieldSet.has(id));
+    const unavailableSet = new Set(unavailablePlayerIds);
+    const bench = checkedInPlayerIds.filter(id => !onFieldSet.has(id) && !unavailableSet.has(id));
     return bench.sort((a, b) => {
       const sa = getDetailedPlayerStats(a, points, now);
       const sb = getDetailedPlayerStats(b, points, now);
       return sb.benchTimeMs - sa.benchTimeMs;
     });
-  }, [isCurrentPoint, displayLineupIds, checkedInPlayerIds, points, now]);
+  }, [isCurrentPoint, displayLineupIds, checkedInPlayerIds, unavailablePlayerIds, points, now]);
 
   // Checked-out players (not on field, not in checkedInPlayerIds) for current point
   const checkedOutPlayerIds = useMemo(() => {
     if (!isCurrentPoint) return [];
     const onFieldSet = new Set(displayLineupIds);
     const checkedInSet = new Set(checkedInPlayerIds);
+    const unavailableSet = new Set(unavailablePlayerIds);
     return players
       .map(p => p.id)
-      .filter(id => !onFieldSet.has(id) && !checkedInSet.has(id));
-  }, [isCurrentPoint, displayLineupIds, checkedInPlayerIds, players]);
+      .filter(id => !onFieldSet.has(id) && !checkedInSet.has(id) && !unavailableSet.has(id));
+  }, [isCurrentPoint, displayLineupIds, checkedInPlayerIds, unavailablePlayerIds, players]);
 
   // Stats for the viewed point
   const viewedStats = useMemo(() => {
@@ -125,6 +141,31 @@ export default function PointDetailView({
     }
     return currentRatio;
   }, [isPastPoint, isFuturePoint, selectedPointIndex, points, players, futureLineups, currentRatio, overrideRatioForFuture]);
+
+  // Bench-time warnings: on-field players with more playing time than the least-played bench player
+  const lineupWarnings = useMemo(() => {
+    if (!isCurrentPoint || phase !== 'pre-point' || benchPlayerIds.length === 0) return {};
+    const warnings = {};
+    const benchMetrics = benchPlayerIds.map(id => {
+      const s = getDetailedPlayerStats(id, points, now);
+      return equalizeBy === 'time' ? s.totalPlayingTimeMs : s.pointsPlayed;
+    });
+    const minBenchMetric = Math.min(...benchMetrics);
+    displayLineupIds.forEach(id => {
+      const s = getDetailedPlayerStats(id, points, now);
+      const metric = equalizeBy === 'time' ? s.totalPlayingTimeMs : s.pointsPlayed;
+      if (metric > minBenchMetric) {
+        warnings[id] = true;
+      }
+    });
+    return warnings;
+  }, [isCurrentPoint, phase, displayLineupIds, benchPlayerIds, points, now, equalizeBy]);
+
+  // Unavailable players list (only for current point view)
+  const unavailablePlayerList = useMemo(() => {
+    if (!isCurrentPoint) return [];
+    return unavailablePlayerIds.filter(id => players.some(p => p.id === id));
+  }, [isCurrentPoint, unavailablePlayerIds, players]);
 
   function handleMoveToField(playerId) {
     if (phase !== 'pre-point') return;
@@ -170,6 +211,15 @@ export default function PointDetailView({
       pointIndex: pointIndex === null ? gameState.points.length : pointIndex,
       playerId,
       statType,
+    });
+  }
+
+  function handleEditScoredBy(scoredBy) {
+    if (!isPastPoint || !editingPastPoint) return;
+    dispatch({
+      type: ACTIONS.EDIT_POINT_SCORED_BY,
+      pointIndex: selectedPointIndex,
+      scoredBy,
     });
   }
 
@@ -222,8 +272,20 @@ export default function PointDetailView({
           <span>{displayRatio.bx}bx / {displayRatio.gx}gx</span>
           {(canMove || isFuturePoint) && <span className="text-xs opacity-60">tap to change</span>}
         </button>
-        {isPastPoint && (
+        {isPastPoint && !editingPastPoint && (
           <span className="text-xs text-navy-400 italic">Past point (read-only)</span>
+        )}
+        {isPastPoint && !editingPastPoint && (
+          <button
+            onClick={() => setShowEditConfirm(true)}
+            className="text-xs font-semibold text-gold/70 active:text-gold px-2 py-1 rounded-lg border border-gold/30 active:border-gold/60 transition-colors"
+            style={{ minHeight: 32 }}
+          >
+            Edit
+          </button>
+        )}
+        {isPastPoint && editingPastPoint && (
+          <span className="text-xs text-gold font-semibold italic">Editing past point</span>
         )}
         {isFuturePoint && (
           <span className="text-xs text-navy-400 italic">Preview lineup</span>
@@ -247,6 +309,35 @@ export default function PointDetailView({
           )}
         </div>
 
+        {/* Scored-by edit toggle — only in past point edit mode */}
+        {isPastPoint && editingPastPoint && (
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs text-navy-400">Scored by:</span>
+            <button
+              onClick={() => handleEditScoredBy('us')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                points[selectedPointIndex]?.scoredBy === 'us'
+                  ? 'bg-score-green text-white'
+                  : 'bg-navy-700 text-navy-300 active:bg-navy-600'
+              }`}
+              style={{ minHeight: 32 }}
+            >
+              Us
+            </button>
+            <button
+              onClick={() => handleEditScoredBy('them')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                points[selectedPointIndex]?.scoredBy === 'them'
+                  ? 'bg-score-red text-white'
+                  : 'bg-navy-700 text-navy-300 active:bg-navy-600'
+              }`}
+              style={{ minHeight: 32 }}
+            >
+              Them
+            </button>
+          </div>
+        )}
+
         <div>
           {displayLineupIds.map(id => {
             const player = players.find(p => p.id === id);
@@ -266,7 +357,9 @@ export default function PointDetailView({
                 onMove={canMove ? () => handleMoveToBench(id) : null}
                 disabled={!canMove}
                 statCounts={statCounts}
-                onStatTap={!isFuturePoint ? () => setStatModalPlayerId(id) : undefined}
+                onStatTap={(!isFuturePoint && (isCurrentPoint || editingPastPoint)) ? () => setStatModalPlayerId(id) : undefined}
+                hasWarning={!!(lineupWarnings && lineupWarnings[id])}
+                onInfoTap={isCurrentPoint ? () => setInfoModalPlayerId(id) : undefined}
               />
             );
           })}
@@ -304,6 +397,7 @@ export default function PointDetailView({
                   onCheckInToggle={() =>
                     dispatch({ type: ACTIONS.CHECK_OUT_PLAYER, playerId: id })
                   }
+                  onInfoTap={() => setInfoModalPlayerId(id)}
                 />
               );
             })}
@@ -325,12 +419,46 @@ export default function PointDetailView({
                   onCheckInToggle={() =>
                     dispatch({ type: ACTIONS.CHECK_IN_PLAYER, playerId: id })
                   }
+                  onInfoTap={() => setInfoModalPlayerId(id)}
                 />
               );
             })}
             {benchPlayerIds.length === 0 && checkedOutPlayerIds.length === 0 && (
               <div className="text-xs text-navy-400 py-2 text-center">No players on bench</div>
             )}
+          </div>
+        </>
+      )}
+
+      {/* Unavailable players section — only for current point */}
+      {isCurrentPoint && unavailablePlayerList.length > 0 && (
+        <>
+          <div className="flex items-center gap-3 my-3">
+            <div className="flex-1 h-px bg-navy-700" />
+            <span className="text-xs uppercase text-score-red/70 font-semibold">Unavailable</span>
+            <div className="flex-1 h-px bg-navy-700" />
+          </div>
+          <div>
+            {unavailablePlayerList.map(id => {
+              const player = players.find(p => p.id === id);
+              if (!player) return null;
+              const stats = getDetailedPlayerStats(id, points, now);
+              return (
+                <LineupPlayerRow
+                  key={id}
+                  player={player}
+                  pointsPlayed={stats.pointsPlayed}
+                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                  benchTimeMs={stats.benchTimeMs}
+                  isOnField={false}
+                  onMove={null}
+                  disabled={true}
+                  statCounts={{ D: 0, assist: 0, goal: 0 }}
+                  isUnavailable={true}
+                  onInfoTap={() => setInfoModalPlayerId(id)}
+                />
+              );
+            })}
           </div>
         </>
       )}
@@ -345,6 +473,47 @@ export default function PointDetailView({
           onRemoveStat={handleRemoveStat}
           onClose={() => setStatModalPlayerId(null)}
         />
+      )}
+
+      {/* Player info modal */}
+      {infoModalPlayerId && (
+        <PlayerInfoModal
+          player={players.find(p => p.id === infoModalPlayerId)}
+          gameState={gameState}
+          onMarkUnavailable={(playerId) => dispatch({ type: ACTIONS.MARK_UNAVAILABLE, playerId })}
+          onMarkAvailable={(playerId) => dispatch({ type: ACTIONS.MARK_AVAILABLE, playerId })}
+          onClose={() => setInfoModalPlayerId(null)}
+        />
+      )}
+
+      {/* Edit confirmation modal */}
+      {showEditConfirm && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-40"
+          onClick={() => setShowEditConfirm(false)}
+        >
+          <div
+            className="bg-navy-800 rounded-xl p-5 max-w-sm mx-4 w-full space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-gold">Edit past point?</p>
+            <p className="text-xs text-navy-300 leading-relaxed">
+              This point is over. You can change who scored and edit player stats. Lineup changes are not supported.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setShowEditConfirm(false)} className="btn-primary flex-1" style={{ minHeight: 44 }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => { setEditingPastPoint(true); setShowEditConfirm(false); }}
+                className="btn-gold flex-1"
+                style={{ minHeight: 44 }}
+              >
+                Yes, Edit
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Ratio picker modal — only for future points */}

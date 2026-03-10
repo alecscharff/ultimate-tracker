@@ -33,7 +33,6 @@ export default function StatAttribution({
     if (!selectedPlayerId) return;
     onAddStat(pointIndex, selectedPlayerId, statType);
     setSelectedPlayerId(null);
-    setExpanded(false);
   }
 
   function handleRemove(playerId, statType) {

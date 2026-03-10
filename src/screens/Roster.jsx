@@ -28,6 +28,8 @@ export default function Roster() {
   const [sheetSkipped, setSheetSkipped] = useState([]);
   const [importError, setImportError] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   // Results sync script
   const [showScriptSetup, setShowScriptSetup] = useState(false);
@@ -175,6 +177,13 @@ export default function Roster() {
         <button onClick={() => navigate('/')} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
         <h1 className="font-display text-2xl">ROSTER</h1>
         <span className="text-navy-300 text-sm ml-auto">{players.length} players</span>
+        <button
+          onClick={() => setEditMode(m => !m)}
+          className={`text-xs px-2 py-2 font-semibold transition-colors ${editMode ? 'text-score-red active:text-score-red/70' : 'text-navy-400 active:text-white'}`}
+          style={{ minHeight: '44px' }}
+        >
+          {editMode ? 'Done' : 'Edit'}
+        </button>
         <button
           onClick={signOut}
           className="text-xs text-navy-400 active:text-white px-2 py-2"
@@ -402,42 +411,22 @@ export default function Roster() {
       {/* Player list */}
       <div className="px-4 mt-4 space-y-2">
         {players.map(player => (
-          <div
-            key={player.id}
-            className="card px-4 py-3 flex items-center justify-between gap-3"
-            style={{ minHeight: '44px' }}
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="font-semibold truncate">{player.name}</span>
-              <span className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
-              }`}>
-                {player.gender}
-              </span>
-              <span className="text-[11px] text-navy-300 font-mono">G{player.grade}</span>
-            </div>
-            <div className="flex gap-1">
-              <button
-                onClick={() => navigate(`/skills/${player.id}`)}
-                className="text-xs text-gold/70 active:text-gold px-3 py-2 rounded-lg"
-                style={{ minHeight: '36px' }}
-              >
-                Skills
-              </button>
-              <button
-                onClick={() => startEdit(player)}
-                className="text-xs text-navy-300 active:text-white px-3 py-2 rounded-lg"
-                style={{ minHeight: '36px' }}
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => handleDelete(player.id)}
-                className="text-xs text-score-red/70 active:text-score-red px-3 py-2 rounded-lg"
-                style={{ minHeight: '36px' }}
-              >
-                Del
-              </button>
+          <div key={player.id} className="card px-4 py-3 flex items-center gap-3" style={{ minHeight: '44px' }}>
+            {/* Name - flexible */}
+            <span className="font-semibold truncate flex-1 min-w-0">{player.name}</span>
+            {/* Gender badge - fixed width */}
+            <span className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded text-center w-8 flex-shrink-0 ${
+              player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
+            }`}>{player.gender}</span>
+            {/* Grade - fixed width */}
+            <span className="text-[11px] text-navy-300 font-mono w-6 text-center flex-shrink-0">G{player.grade}</span>
+            {/* Actions */}
+            <div className="flex gap-1 flex-shrink-0">
+              <button onClick={() => navigate(`/skills/${player.id}`)} className="text-xs text-gold/70 active:text-gold px-3 py-2 rounded-lg" style={{ minHeight: '36px' }}>Skills</button>
+              <button onClick={() => startEdit(player)} className="text-xs text-navy-300 active:text-white px-3 py-2 rounded-lg" style={{ minHeight: '36px' }}>Edit</button>
+              {editMode && (
+                <button onClick={() => setDeleteConfirmId(player.id)} className="text-xs text-score-red/70 active:text-score-red px-3 py-2 rounded-lg" style={{ minHeight: '36px' }}>Del</button>
+              )}
             </div>
           </div>
         ))}
@@ -447,6 +436,33 @@ export default function Roster() {
           </div>
         )}
       </div>
+
+      {deleteConfirmId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setDeleteConfirmId(null)}
+        >
+          <div
+            className="bg-navy-800 rounded-xl p-5 max-w-sm mx-4 w-full space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-score-red">Delete Player?</p>
+            <p className="text-xs text-navy-300 leading-relaxed">
+              Delete {players.find(p => p.id === deleteConfirmId)?.name || 'this player'}? This will permanently remove them from the roster.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirmId(null)} className="btn-primary flex-1" style={{ minHeight: 44 }}>Cancel</button>
+              <button
+                onClick={async () => { await handleDelete(deleteConfirmId); setDeleteConfirmId(null); }}
+                className="flex-1 py-3 rounded-lg font-semibold text-sm bg-score-red text-white active:bg-score-red/80 transition-colors"
+                style={{ minHeight: 44 }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

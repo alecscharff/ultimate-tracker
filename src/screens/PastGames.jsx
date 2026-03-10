@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePlayers } from '../hooks/usePlayers';
 import { useGames } from '../hooks/useGames';
 import { getPlayerStats } from '../utils/lineup';
+import { softDeleteGame } from '../services/gameService';
 
 export default function PastGames() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export default function PastGames() {
   const players = usePlayers();
   const [expandedId, setExpandedId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const getPlayer = id => players.find(p => p.id === id);
 
@@ -47,6 +49,12 @@ export default function PastGames() {
       setCopiedId(game.id);
       setTimeout(() => setCopiedId(null), 2000);
     });
+  }
+
+  async function handleDeleteGame(game) {
+    await softDeleteGame(game.id);
+    setDeleteTarget(null);
+    setExpandedId(null);
   }
 
   function handleDownloadCSV(game) {
@@ -116,6 +124,16 @@ export default function PastGames() {
                     </button>
                   </div>
 
+                  <div className="mb-4">
+                    <button
+                      onClick={() => setDeleteTarget(game)}
+                      className="w-full text-xs py-2 rounded-lg font-semibold text-score-red/70 border border-score-red/30 active:bg-score-red/10 transition-colors"
+                      style={{ minHeight: 36 }}
+                    >
+                      Delete Game
+                    </button>
+                  </div>
+
                   <div className="text-xs uppercase text-navy-300 font-semibold mb-2">Player Stats</div>
                   <div className="space-y-1.5">
                     {(game.checkedInPlayerIds || []).map(pid => {
@@ -172,6 +190,35 @@ export default function PastGames() {
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="bg-navy-800 rounded-xl p-5 max-w-sm mx-4 w-full space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-score-red">Delete Game?</p>
+            <p className="text-xs text-navy-300 leading-relaxed">
+              Delete the game vs {deleteTarget.opponent} ({deleteTarget.date})? This game will be removed from your history.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteTarget(null)} className="btn-primary flex-1" style={{ minHeight: 44 }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteGame(deleteTarget)}
+                className="flex-1 py-3 rounded-lg font-semibold text-sm bg-score-red text-white active:bg-score-red/80 transition-colors"
+                style={{ minHeight: 44 }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

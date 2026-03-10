@@ -7,7 +7,7 @@ export function useGames() {
   useEffect(() => {
     const q = query(collection(db, 'games'), orderBy('endedAt', 'desc'));
     return onSnapshot(q, snap => {
-      setGames(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setGames(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(g => !g.deleted));
     });
   }, []);
   return games;

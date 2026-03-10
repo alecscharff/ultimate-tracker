@@ -28,6 +28,9 @@ export const ACTIONS = {
   CHECK_OUT_PLAYER: 'CHECK_OUT_PLAYER',
   END_GAME: 'END_GAME',
   CLEAR_GAME: 'CLEAR_GAME',
+  MARK_UNAVAILABLE: 'MARK_UNAVAILABLE',
+  MARK_AVAILABLE: 'MARK_AVAILABLE',
+  EDIT_POINT_SCORED_BY: 'EDIT_POINT_SCORED_BY',
 };
 
 const initialState = {
@@ -55,6 +58,7 @@ const initialState = {
   subDismissedAt: null,
   viewingPointIndex: null,  // null = current point, number = viewing past point
   midPointSubs: [],         // [{ outId, inId, timestamp }] for current point
+  unavailablePlayerIds: [],
 };
 
 function gameReducer(state, action) {
@@ -252,6 +256,44 @@ function gameReducer(state, action) {
     case 'CLEAR_GAME':
       return { ...initialState };
 
+    case 'MARK_UNAVAILABLE': {
+      const { playerId } = action;
+      return {
+        ...state,
+        unavailablePlayerIds: [...new Set([...(state.unavailablePlayerIds || []), playerId])],
+        onField: state.onField.filter(id => id !== playerId),
+        checkedInPlayerIds: state.checkedInPlayerIds.filter(id => id !== playerId),
+      };
+    }
+
+    case 'MARK_AVAILABLE': {
+      const { playerId } = action;
+      return {
+        ...state,
+        unavailablePlayerIds: (state.unavailablePlayerIds || []).filter(id => id !== playerId),
+        checkedInPlayerIds: state.checkedInPlayerIds.includes(playerId)
+          ? state.checkedInPlayerIds
+          : [...state.checkedInPlayerIds, playerId],
+      };
+    }
+
+    case 'EDIT_POINT_SCORED_BY': {
+      const { pointIndex, scoredBy } = action;
+      if (pointIndex < 0 || pointIndex >= state.points.length) return state;
+      const oldPoint = state.points[pointIndex];
+      if (oldPoint.scoredBy === scoredBy) return state;
+      const updatedPoints = state.points.map((pt, i) =>
+        i === pointIndex ? { ...pt, scoredBy } : pt
+      );
+      let ourScore = 0;
+      let theirScore = 0;
+      updatedPoints.forEach(pt => {
+        if (pt.scoredBy === 'us') ourScore++;
+        else theirScore++;
+      });
+      return { ...state, points: updatedPoints, ourScore, theirScore };
+    }
+
     default:
       return state;
   }
@@ -303,8 +345,30 @@ export function GameProvider({ children }) {
     rawDispatch({ type: 'CLEAR_GAME' });
   }, [state]);
 
+  const deleteAndExitGame = useCallback(async () => {
+    const gameRecord = {
+      id: state.id,
+      opponent: state.opponent,
+      date: state.date,
+      startTime: state.startTime,
+      field: state.field,
+      ourScore: state.ourScore,
+      theirScore: state.theirScore,
+      points: state.points,
+      checkedInPlayerIds: state.checkedInPlayerIds,
+      ratioPattern: state.ratioPattern,
+      gameStartedAt: state.gameStartedAt,
+      endedAt: Date.now(),
+      status: 'deleted',
+      deleted: true,
+    };
+    await setDoc(doc(db, 'games', String(state.id)), gameRecord);
+    await deleteDoc(doc(db, 'activeGame', 'current'));
+    rawDispatch({ type: 'CLEAR_GAME' });
+  }, [state]);
+
   return (
-    <GameContext.Provider value={{ state, dispatch, saveAndEndGame }}>
+    <GameContext.Provider value={{ state, dispatch, saveAndEndGame, deleteAndExitGame }}>
       {children}
     </GameContext.Provider>
   );
