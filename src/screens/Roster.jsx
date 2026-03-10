@@ -354,6 +354,11 @@ export default function Roster() {
             <button onClick={handleImport} className="btn-primary w-full mt-2 py-3">
               Import Players
             </button>
+            {importError && (
+              <pre className="text-[11px] text-score-red/90 mt-2 whitespace-pre-wrap leading-relaxed">
+                {importError}
+              </pre>
+            )}
           </div>
         )}
 

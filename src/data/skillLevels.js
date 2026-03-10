@@ -34,7 +34,7 @@ export const SKILL_LEVELS = [
         {
           key: 'grip',
           label: 'Grip',
-          description: 'Two fingers on rim. Thumb on top. Disc is stable.',
+          description: 'Fingers curled under the rim. Thumb on top. Disc is stable.',
         },
         {
           key: 'stance',

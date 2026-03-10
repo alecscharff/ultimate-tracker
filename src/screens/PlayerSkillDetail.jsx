@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePlayers } from '../hooks/usePlayers';
 import { useCertifications } from '../hooks/useCertifications';
@@ -7,6 +8,7 @@ import {
   setHomeQuizReviewed,
   markPassed,
   setPartner,
+  updateNotes,
 } from '../services/certificationService';
 
 function formatDate(timestamp) {
@@ -217,6 +219,15 @@ export default function PlayerSkillDetail() {
                       />
                     </div>
                   </div>
+
+                  {cert?.lastEvaluatedAt && (
+                    <p className="text-xs text-navy-400 mt-2">
+                      Last evaluated: {formatDate(cert.lastEvaluatedAt)}
+                      {cert.lastEvaluatedByEmail && (
+                        <span> by {cert.lastEvaluatedByEmail}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 {/* Level 2: Partner selector */}
@@ -279,6 +290,17 @@ export default function PlayerSkillDetail() {
                     </button>
                   )}
                 </div>
+
+                {/* Coach notes */}
+                <div>
+                  <label className="text-white font-semibold text-sm block mb-1">
+                    Coach Notes
+                  </label>
+                  <NotesEditor
+                    value={cert?.notes ?? ''}
+                    onSave={(text) => updateNotes(playerId, levelConfig.level, text)}
+                  />
+                </div>
               </div>
             </div>
           );
@@ -286,6 +308,47 @@ export default function PlayerSkillDetail() {
       </div>
     </div>
   );
+
+  function NotesEditor({ value, onSave }) {
+    const [draft, setDraft] = useState(value);
+    const [dirty, setDirty] = useState(false);
+
+    useEffect(() => {
+      setDraft(value);
+      setDirty(false);
+    }, [value]);
+
+    function handleChange(e) {
+      setDraft(e.target.value);
+      setDirty(e.target.value !== value);
+    }
+
+    async function handleSave() {
+      await onSave(draft);
+      setDirty(false);
+    }
+
+    return (
+      <div>
+        <textarea
+          value={draft}
+          onChange={handleChange}
+          onBlur={() => dirty && handleSave()}
+          placeholder="Add notes..."
+          rows={2}
+          className="w-full text-sm bg-navy-900 border border-navy-600 rounded-lg px-3 py-2 text-white placeholder:text-navy-500 resize-y"
+        />
+        {dirty && (
+          <button
+            onClick={handleSave}
+            className="mt-1 text-xs text-gold underline underline-offset-2"
+          >
+            Save notes
+          </button>
+        )}
+      </div>
+    );
+  }
 }
 
 function PlaceholderLevelCard({ levelConfig }) {

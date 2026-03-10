@@ -18,6 +18,21 @@ function getCertStatus(certMap, playerId, level) {
   return hasProgress ? 'in-progress' : 'none';
 }
 
+function getLatestEvaluation(certMap, playerId) {
+  const playerCerts = certMap.get(playerId);
+  if (!playerCerts) return null;
+  let latest = 0;
+  for (const cert of playerCerts.values()) {
+    if (cert.lastEvaluatedAt && cert.lastEvaluatedAt > latest) {
+      latest = cert.lastEvaluatedAt;
+    }
+  }
+  if (!latest) return null;
+  return new Date(latest).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric',
+  });
+}
+
 export default function SkillDevelopment() {
   const navigate = useNavigate();
   const players = usePlayers();
@@ -81,41 +96,53 @@ export default function SkillDevelopment() {
 
       {/* Player list */}
       <div className="px-4 mt-2 space-y-2">
-        {filteredPlayers.map(player => (
-          <button
-            key={player.id}
-            onClick={() => navigate(`/skills/${player.id}`)}
-            className="card w-full px-4 py-3 flex items-center gap-3 text-left active:bg-navy-700 transition-colors"
-            style={{ minHeight: '52px' }}
-          >
-            {/* Player info */}
-            <div className="flex-1 flex items-center gap-2 min-w-0">
-              <span className="font-semibold truncate">{player.name}</span>
-              <span
-                className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                  player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
-                }`}
-              >
-                {player.gender}
-              </span>
-              <span className="text-[11px] text-navy-300 font-mono">G{player.grade}</span>
-            </div>
+        {filteredPlayers.map(player => {
+          const latestEval = getLatestEvaluation(certMap, player.id);
+          return (
+            <button
+              key={player.id}
+              onClick={() => navigate(`/skills/${player.id}`)}
+              className="card w-full px-4 py-3 flex items-center gap-3 text-left active:bg-navy-700 transition-colors"
+              style={{ minHeight: '52px' }}
+            >
+              {/* Player info */}
+              <div className="flex-1 min-w-0">
+                {/* Name, gender, grade line */}
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold truncate">{player.name}</span>
+                  <span
+                    className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                      player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
+                    }`}
+                  >
+                    {player.gender}
+                  </span>
+                  <span className="text-[11px] text-navy-300 font-mono">G{player.grade}</span>
+                </div>
+                {/* Last evaluated line */}
+                {latestEval && (
+                  <p className="text-[10px] text-navy-500 mt-0.5 truncate">
+                    Last eval: {latestEval}
+                  </p>
+                )}
+              </div>
 
-            {/* Cert badges */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {ACTIVE_LEVELS.map(lvl => (
-                <CertBadge
-                  key={lvl.level}
-                  level={lvl.level}
-                  status={getCertStatus(certMap, player.id, lvl.level)}
-                />
-              ))}
-            </div>
+              {/* Cert badges */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {ACTIVE_LEVELS.map(lvl => (
+                  <CertBadge
+                    key={lvl.level}
+                    level={lvl.level}
+                    status={getCertStatus(certMap, player.id, lvl.level)}
+                  />
+                ))}
+              </div>
 
-            {/* Chevron */}
-            <span className="text-navy-500 text-lg leading-none ml-1">›</span>
-          </button>
-        ))}
+              {/* Chevron */}
+              <span className="text-navy-500 text-lg leading-none ml-1">›</span>
+            </button>
+          );
+        })}
 
         {players.length === 0 && (
           <div className="text-center text-navy-400 py-12">
