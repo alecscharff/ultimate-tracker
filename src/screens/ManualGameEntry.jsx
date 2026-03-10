@@ -36,8 +36,13 @@ export default function ManualGameEntry() {
   const [saving, setSaving] = useState(false);
 
   // Entry mode
-  const [entryMode, setEntryMode] = useState('quick'); // 'quick' | 'detailed'
+  const [entryMode, setEntryMode] = useState('quick'); // 'quick' | 'detailed' | 'csv'
   const [expandedPointIndex, setExpandedPointIndex] = useState(null);
+
+  // CSV import state
+  const [csvText, setCsvText] = useState('');
+  const [csvPreview, setCsvPreview] = useState(null); // { points, ourScore, theirScore, matched, unmatched }
+  const [csvError, setCsvError] = useState('');
 
   // Handlers
   function togglePlayer(id) {
@@ -147,6 +152,137 @@ export default function ManualGameEntry() {
       updated[pointIndex] = { ...updated[pointIndex], lineup: [] };
       return updated;
     });
+  }
+
+  function parseCSV(text) {
+    // Split into rows, handle \r\n and \n
+    const rawRows = text.trim().split(/\r?\n/);
+    // Parse each row respecting quoted fields
+    return rawRows.map(row => {
+      const cells = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < row.length; i++) {
+        const ch = row[i];
+        if (inQuotes) {
+          if (ch === '"' && row[i + 1] === '"') { current += '"'; i++; }
+          else if (ch === '"') inQuotes = false;
+          else current += ch;
+        } else {
+          if (ch === '"') inQuotes = true;
+          else if (ch === ',') { cells.push(current.trim()); current = ''; }
+          else current += ch;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    });
+  }
+
+  function parseCellStats(cell) {
+    // Returns { played: bool, stats: [{type}] }
+    const v = cell.trim().toUpperCase();
+    if (!v || v === '0' || v === 'N' || v === 'NO' || v === 'FALSE') return { played: false, stats: [] };
+    const stats = [];
+    if (v.includes('G')) stats.push({ type: 'goal' });
+    if (v.includes('A')) stats.push({ type: 'assist' });
+    if (v.includes('D')) stats.push({ type: 'D' });
+    return { played: true, stats };
+  }
+
+  function handleParseCSV() {
+    setCsvError('');
+    setCsvPreview(null);
+    if (!csvText.trim()) { setCsvError('Paste your CSV data first.'); return; }
+
+    const rows = parseCSV(csvText);
+    if (rows.length < 2) { setCsvError('Need at least a Scored row and one player row.'); return; }
+
+    // Find scored row (first col matches /^score/i or /^result/i)
+    const scoredRowIdx = rows.findIndex(r => /^score/i.test(r[0]) || /^result/i.test(r[0]));
+    if (scoredRowIdx === -1) { setCsvError('Could not find "Scored" row. Make sure one row starts with "Scored" or "Score".'); return; }
+
+    const scoredRow = rows[scoredRowIdx];
+    // Point columns start at index 1
+    const numPoints = scoredRow.length - 1;
+    if (numPoints < 1) { setCsvError('No points found in the Scored row.'); return; }
+
+    // Parse scored-by for each point
+    const scoredBy = [];
+    for (let i = 1; i <= numPoints; i++) {
+      const v = (scoredRow[i] || '').trim().toLowerCase();
+      if (/^(us|we|our|u|1|w|home)$/.test(v)) scoredBy.push('us');
+      else if (/^(them|they|their|t|2|opp|opponent|away)$/.test(v)) scoredBy.push('them');
+      else { setCsvError(`Unrecognized value "${scoredRow[i]}" in Scored row at point ${i}. Use "us"/"them".`); return; }
+    }
+
+    // Parse player rows (skip header-ish rows: scored row, and rows where first col is empty or "player" or numbers)
+    const matched = [];
+    const unmatched = [];
+
+    const playerRows = rows.filter((r, idx) => {
+      if (idx === scoredRowIdx) return false;
+      const first = (r[0] || '').trim();
+      if (!first) return false;
+      if (/^(player|name|point|\d+)$/i.test(first)) return false;
+      return true;
+    });
+
+    if (playerRows.length === 0) { setCsvError('No player rows found. Expected rows with player names followed by point data.'); return; }
+
+    for (const row of playerRows) {
+      const nameRaw = row[0].trim();
+      // Match to roster (case-insensitive, partial match)
+      const player = players.find(p =>
+        p.name.toLowerCase() === nameRaw.toLowerCase() ||
+        p.name.toLowerCase().includes(nameRaw.toLowerCase()) ||
+        nameRaw.toLowerCase().includes(p.name.toLowerCase())
+      );
+      if (!player) { unmatched.push(nameRaw); continue; }
+
+      // Parse each point cell
+      const pointData = [];
+      for (let i = 1; i <= numPoints; i++) {
+        pointData.push(parseCellStats(row[i] || ''));
+      }
+      matched.push({ player, pointData });
+    }
+
+    // Build points array
+    const builtPoints = scoredBy.map((sb, i) => {
+      const lineup = [];
+      const stats = [];
+      for (const { player, pointData } of matched) {
+        const pd = pointData[i];
+        if (pd && pd.played) {
+          lineup.push(player.id);
+          for (const s of pd.stats) stats.push({ playerId: player.id, type: s.type });
+        }
+      }
+      return {
+        number: i + 1,
+        lineup,
+        scoredBy: sb,
+        stats,
+        midPointSubs: [],
+        startedAt: null,
+        endedAt: null,
+      };
+    });
+
+    const ourScore = builtPoints.filter(p => p.scoredBy === 'us').length;
+    const theirScore = builtPoints.filter(p => p.scoredBy === 'them').length;
+    setCsvPreview({ points: builtPoints, ourScore, theirScore, matched, unmatched });
+  }
+
+  function handleLoadCSV() {
+    if (!csvPreview) return;
+    // Auto check-in all matched players
+    setCheckedInPlayerIds(new Set(csvPreview.matched.map(m => m.player.id)));
+    setPoints(csvPreview.points);
+    setCsvPreview(null);
+    setCsvText('');
+    setEntryMode('quick');
   }
 
   async function saveGame() {
@@ -333,6 +469,14 @@ export default function ManualGameEntry() {
             >
               Detailed
             </button>
+            <button
+              onClick={() => setEntryMode('csv')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                entryMode === 'csv' ? 'bg-gold text-navy-950' : 'text-navy-300 active:text-white'
+              }`}
+            >
+              CSV
+            </button>
           </div>
         </div>
 
@@ -397,6 +541,95 @@ export default function ManualGameEntry() {
                 </button>
               </div>
             </div>
+          </div>
+        ) : entryMode === 'csv' ? (
+          /* CSV paste mode */
+          <div className="px-4 py-4 pb-8 space-y-4">
+            <div>
+              <p className="text-xs text-navy-300 leading-relaxed mb-3">
+                Paste a CSV where <span className="text-gold font-semibold">columns = points</span>, one row for scored (us/them), and one row per player. Cell values: <span className="font-mono text-navy-200">1</span>=played, <span className="font-mono text-navy-200">G</span>=goal, <span className="font-mono text-navy-200">A</span>=assist, <span className="font-mono text-navy-200">D</span>=D, <span className="font-mono text-navy-200">GA</span>=goal+assist, <span className="font-mono text-navy-200">0</span>=sat out.
+              </p>
+              <div className="card p-3 mb-2 bg-navy-900 font-mono text-[11px] text-navy-300 leading-relaxed whitespace-pre overflow-x-auto">
+{`,1,2,3,4,5
+Scored,us,them,us,them,us
+Alex,G,0,1,0,A
+Jordan,1,A,0,1,1
+Sam,0,1,D,0,1`}
+              </div>
+            </div>
+
+            <textarea
+              value={csvText}
+              onChange={e => { setCsvText(e.target.value); setCsvPreview(null); setCsvError(''); }}
+              placeholder="Paste CSV here..."
+              className="w-full font-mono text-sm bg-navy-800 border border-navy-600 rounded-lg px-3 py-3 text-white placeholder-navy-500 focus:outline-none focus:border-gold resize-none"
+              rows={8}
+            />
+
+            {csvError && (
+              <p className="text-xs text-score-red leading-relaxed">{csvError}</p>
+            )}
+
+            {!csvPreview ? (
+              <button
+                onClick={handleParseCSV}
+                disabled={!csvText.trim()}
+                className="btn-gold w-full py-4 disabled:opacity-50"
+              >
+                Parse CSV
+              </button>
+            ) : (
+              <div className="space-y-3">
+                {/* Preview summary */}
+                <div className="card p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase text-navy-400 font-semibold">Preview</span>
+                    <span className="font-display text-xl">
+                      <span className="text-score-green">{csvPreview.ourScore}</span>
+                      <span className="text-navy-400"> - </span>
+                      <span className="text-score-red">{csvPreview.theirScore}</span>
+                    </span>
+                  </div>
+                  <div className="text-xs text-navy-300">{csvPreview.points.length} points parsed</div>
+
+                  {csvPreview.matched.length > 0 && (
+                    <div>
+                      <div className="text-xs text-score-green font-semibold mb-1">Matched ({csvPreview.matched.length})</div>
+                      <div className="flex flex-wrap gap-1">
+                        {csvPreview.matched.map(({ player }) => (
+                          <span key={player.id} className="text-[11px] bg-score-green/10 text-score-green border border-score-green/30 px-2 py-0.5 rounded-full">
+                            {player.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {csvPreview.unmatched.length > 0 && (
+                    <div>
+                      <div className="text-xs text-score-red font-semibold mb-1">Not found in roster ({csvPreview.unmatched.length})</div>
+                      <div className="flex flex-wrap gap-1">
+                        {csvPreview.unmatched.map(name => (
+                          <span key={name} className="text-[11px] bg-score-red/10 text-score-red border border-score-red/30 px-2 py-0.5 rounded-full">
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-navy-400 mt-1">These players won't be included. Fix names in your CSV to match roster names, or add them to the roster first.</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={() => setCsvPreview(null)} className="btn-primary flex-1 py-3">
+                    Re-edit
+                  </button>
+                  <button onClick={handleLoadCSV} className="btn-gold flex-1 py-3">
+                    Load {csvPreview.points.length} Points
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* Detailed mode — existing UI */

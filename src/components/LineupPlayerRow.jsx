@@ -10,6 +10,7 @@ export default function LineupPlayerRow({
   pointsPlayed,
   totalPlayingTimeMs,
   benchTimeMs,
+  lastPlayedGameMinute,
   isOnField,
   onMove,
   disabled,
@@ -24,7 +25,10 @@ export default function LineupPlayerRow({
   if (!player) return null;
 
   const genderColor = player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500';
-  const benchLabel = formatBenchTime(benchTimeMs);
+  // Show game-relative "last at Xm" if available, otherwise fall back to wall-clock "last Xm ago"
+  const benchLabel = lastPlayedGameMinute !== null && lastPlayedGameMinute !== undefined
+    ? `last at ${lastPlayedGameMinute}m`
+    : formatBenchTime(benchTimeMs);
   const totalMinutes = totalPlayingTimeMs ? Math.round(totalPlayingTimeMs / 60000) : null;
   const rowOpacity = (onCheckInToggle !== undefined && !isCheckedIn) || isUnavailable ? 'opacity-40' : '';
   const warningBorder = hasWarning ? 'border-l-2 border-yellow-500' : '';

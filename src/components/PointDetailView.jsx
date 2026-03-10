@@ -39,6 +39,7 @@ export default function PointDetailView({
     equalizeBy,
     currentStats,
     unavailablePlayerIds = [],
+    gameStartedAt,
   } = gameState;
 
   // Determine what we're viewing
@@ -85,6 +86,12 @@ export default function PointDetailView({
     // Current point
     return onField;
   }, [isPastPoint, isFuturePoint, selectedPointIndex, points, futureLineups, onField, overrideRatioForFuture, projectedLineup]);
+
+  // Compute game-relative minute a player last played (from game start = 0)
+  function gameMinute(lastPointEndedAt) {
+    if (!lastPointEndedAt || !gameStartedAt) return null;
+    return Math.round((lastPointEndedAt - gameStartedAt) / 60000);
+  }
 
   // Bench players for current point (sorted by bench time desc)
   const now = Date.now();
@@ -353,6 +360,7 @@ export default function PointDetailView({
                 pointsPlayed={stats.pointsPlayed}
                 totalPlayingTimeMs={stats.totalPlayingTimeMs}
                 benchTimeMs={stats.benchTimeMs}
+                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                 isOnField={true}
                 onMove={canMove ? () => handleMoveToBench(id) : null}
                 disabled={!canMove}
@@ -389,6 +397,7 @@ export default function PointDetailView({
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
                   benchTimeMs={stats.benchTimeMs}
+                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={false}
                   onMove={canMove ? () => handleMoveToField(id) : null}
                   disabled={!canMove}
@@ -411,6 +420,7 @@ export default function PointDetailView({
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
                   benchTimeMs={stats.benchTimeMs}
+                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={false}
                   onMove={null}
                   disabled={true}
@@ -450,6 +460,7 @@ export default function PointDetailView({
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
                   benchTimeMs={stats.benchTimeMs}
+                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={false}
                   onMove={null}
                   disabled={true}
