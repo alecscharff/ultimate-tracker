@@ -134,7 +134,44 @@ export default function PastGames() {
                     </button>
                   </div>
 
+                  {/* Team Summary */}
+                  <div className="text-xs uppercase text-navy-300 font-semibold mb-2">Team Summary</div>
+                  {(() => {
+                    const pts = game.points || [];
+                    const totalGoals = pts.reduce((sum, pt) => sum + (pt.stats || []).filter(s => s.type === 'goal' || s.type === 'score').length, 0);
+                    const totalAssists = pts.reduce((sum, pt) => sum + (pt.stats || []).filter(s => s.type === 'assist').length, 0);
+                    const totalDs = pts.reduce((sum, pt) => sum + (pt.stats || []).filter(s => s.type === 'D' || s.type === 'd').length, 0);
+                    const net = game.ourScore - game.theirScore;
+                    return (
+                      <div className="flex items-center justify-between bg-navy-900 rounded-lg px-3 py-2 mb-4">
+                        <div className="flex gap-4 text-xs">
+                          <div className="text-center"><div className="text-navy-400 mb-0.5">PF</div><div className="font-bold text-score-green">{game.ourScore}</div></div>
+                          <div className="text-center"><div className="text-navy-400 mb-0.5">PA</div><div className="font-bold text-score-red">{game.theirScore}</div></div>
+                          <div className="text-center"><div className="text-navy-400 mb-0.5">+/-</div><div className={`font-bold ${net >= 0 ? 'text-score-green' : 'text-score-red'}`}>{net >= 0 ? '+' : ''}{net}</div></div>
+                          <div className="text-center"><div className="text-navy-400 mb-0.5">G</div><div className="font-bold text-white">{totalGoals}</div></div>
+                          <div className="text-center"><div className="text-navy-400 mb-0.5">A</div><div className="font-bold text-white">{totalAssists}</div></div>
+                          <div className="text-center"><div className="text-navy-400 mb-0.5">D</div><div className="font-bold text-white">{totalDs}</div></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="text-xs uppercase text-navy-300 font-semibold mb-2">Player Stats</div>
+                  {/* Column header */}
+                  <div className="flex items-center text-[10px] text-navy-400 uppercase font-semibold px-3 py-1 mb-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="flex-1 min-w-0">Player</span>
+                      <span className="w-8 text-center flex-shrink-0"></span>
+                      <span className="w-8 text-center flex-shrink-0"></span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-9 text-center">Pts</span>
+                      <span className="w-9 text-center">G</span>
+                      <span className="w-9 text-center">A</span>
+                      <span className="w-9 text-center">D</span>
+                      <span className="w-10 text-center">+/-</span>
+                    </div>
+                  </div>
                   <div className="space-y-1.5">
                     {(game.checkedInPlayerIds || []).map(pid => {
                       const player = getPlayer(pid);
@@ -142,7 +179,7 @@ export default function PastGames() {
                       const stats = getPlayerStats(pid, game.points || []);
 
                       return (
-                        <div key={pid} className="flex items-center justify-between text-sm bg-navy-900 rounded-lg px-3 py-2">
+                        <div key={pid} className="flex items-center text-sm bg-navy-900 rounded-lg px-3 py-2">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className="font-medium truncate flex-1 min-w-0">{player.name}</span>
                             <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded text-center w-8 flex-shrink-0 ${
@@ -150,12 +187,12 @@ export default function PastGames() {
                             }`}>{player.gender}</span>
                             <span className="text-[10px] text-navy-300 font-mono w-8 text-center flex-shrink-0">G{player.grade}</span>
                           </div>
-                          <div className="flex gap-3 text-xs text-navy-300">
-                            <span>{stats.pointsPlayed} pts</span>
-                            {stats.scores > 0 && <span className="text-score-green">{stats.scores} goals</span>}
-                            {stats.assists > 0 && <span className="text-gold">{stats.assists} ast</span>}
-                            {stats.ds > 0 && <span className="text-navy-200">{stats.ds} D</span>}
-                            <span className={stats.plusMinus >= 0 ? 'text-score-green' : 'text-score-red'}>
+                          <div className="flex text-xs">
+                            <span className="w-9 text-center text-navy-300">{stats.pointsPlayed}</span>
+                            <span className={`w-9 text-center ${stats.scores > 0 ? 'text-score-green font-semibold' : 'text-navy-600'}`}>{stats.scores}</span>
+                            <span className={`w-9 text-center ${stats.assists > 0 ? 'text-gold font-semibold' : 'text-navy-600'}`}>{stats.assists}</span>
+                            <span className={`w-9 text-center ${stats.ds > 0 ? 'text-navy-200 font-semibold' : 'text-navy-600'}`}>{stats.ds}</span>
+                            <span className={`w-10 text-center font-semibold ${stats.plusMinus >= 0 ? 'text-score-green' : 'text-score-red'}`}>
                               {stats.plusMinus >= 0 ? '+' : ''}{stats.plusMinus}
                             </span>
                           </div>
