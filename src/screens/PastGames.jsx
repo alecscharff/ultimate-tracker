@@ -76,7 +76,10 @@ export default function PastGames() {
           <button onClick={() => navigate('/')} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
           <h1 className="font-display text-2xl">PAST GAMES</h1>
         </div>
-        <button onClick={() => navigate('/games/add')} className="text-gold active:text-gold-light text-2xl leading-none px-1 py-2 font-bold" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => navigate('/games/add?mode=csv')} className="text-xs font-semibold text-gold/70 active:text-gold border border-gold/30 active:border-gold px-3 py-1.5 rounded-lg transition-colors" style={{ minHeight: '36px' }}>Import CSV</button>
+          <button onClick={() => navigate('/games/add')} className="text-gold active:text-gold-light text-2xl leading-none px-1 py-2 font-bold" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+        </div>
       </div>
 
       <div className="px-4 mt-4 space-y-3">

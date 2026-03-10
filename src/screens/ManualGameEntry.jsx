@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { usePlayers } from '../hooks/usePlayers';
@@ -18,7 +18,11 @@ const RATIO_PRESETS = [
 
 export default function ManualGameEntry() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const players = usePlayers();
+
+  // If ?mode=csv, start directly on Step 2 in CSV mode
+  const startInCSV = searchParams.get('mode') === 'csv';
 
   // Shared setup data
   const [opponent, setOpponent] = useState('');
@@ -27,8 +31,8 @@ export default function ManualGameEntry() {
   const [field, setField] = useState('');
   const [checkedInPlayerIds, setCheckedInPlayerIds] = useState(new Set());
 
-  // Step control
-  const [step, setStep] = useState(1); // 1=setup, 2=points, 3=review
+  // Step control — start at step 2 CSV mode if launched from Import CSV button
+  const [step, setStep] = useState(startInCSV ? 2 : 1);
 
   // Points entry
   const [points, setPoints] = useState([]);
@@ -36,7 +40,7 @@ export default function ManualGameEntry() {
   const [saving, setSaving] = useState(false);
 
   // Entry mode
-  const [entryMode, setEntryMode] = useState('quick'); // 'quick' | 'detailed' | 'csv'
+  const [entryMode, setEntryMode] = useState(startInCSV ? 'csv' : 'quick'); // 'quick' | 'detailed' | 'csv'
   const [expandedPointIndex, setExpandedPointIndex] = useState(null);
 
   // CSV import state
@@ -70,6 +74,12 @@ export default function ManualGameEntry() {
   function startStep2() {
     if (!opponent.trim() || checkedInPlayerIds.size < 5) return;
     setCurrentLineup(new Set()); // default empty
+    setStep(2);
+  }
+
+  function startCSVImport() {
+    if (!opponent.trim()) return;
+    setEntryMode('csv');
     setStep(2);
   }
 
@@ -362,6 +372,25 @@ export default function ManualGameEntry() {
             />
           </div>
 
+          {/* CSV import shortcut */}
+          <div className="card p-4 border-gold/30 bg-gold/5">
+            <div className="text-xs font-semibold text-gold mb-1">Have a spreadsheet?</div>
+            <p className="text-xs text-navy-300 mb-3 leading-relaxed">
+              Skip player check-in — paste a CSV with scored row + player rows and the app will auto-match your roster.
+            </p>
+            <button
+              onClick={startCSVImport}
+              disabled={!opponent.trim()}
+              className="btn-gold w-full py-3 disabled:opacity-40"
+              style={{ minHeight: 44 }}
+            >
+              Import from CSV →
+            </button>
+            {!opponent.trim() && (
+              <p className="text-[11px] text-navy-500 mt-1.5 text-center">Enter opponent name first</p>
+            )}
+          </div>
+
           {/* Player check-in */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -446,7 +475,7 @@ export default function ManualGameEntry() {
       <div className="min-h-dvh flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setStep(1)} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
+          <button onClick={() => startInCSV ? navigate('/games') : setStep(1)} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
           <h1 className="font-display text-2xl">
             <span className="text-score-green">{ourScore}</span>
             <span className="text-navy-300"> - </span>
@@ -735,14 +764,31 @@ Sam,0,1,D,0,1`}
         </div>
 
         <div className="px-4 py-4 space-y-4">
-          {/* Summary */}
-          <div className="card p-4">
-            <div className="text-xs text-navy-400 mb-1">{date}</div>
-            <div className="font-semibold text-lg mb-2">vs {opponent}</div>
-            <div className="text-3xl font-display mb-2">
-              <span className="text-score-green">{ourScore}</span> - <span className="text-score-red">{theirScore}</span>
+          {/* Game details — editable if came from CSV import without filling Step 1 */}
+          <div className="card p-4 space-y-3">
+            <input
+              type="text"
+              placeholder="Opponent name"
+              value={opponent}
+              onChange={e => setOpponent(e.target.value)}
+              className="w-full text-lg"
+            />
+            <div className="flex gap-2">
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} className="flex-1" />
+              <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-28" />
             </div>
-            {field && <div className="text-sm text-navy-300">{field}</div>}
+            <input
+              type="text"
+              placeholder="Field / location (optional)"
+              value={field}
+              onChange={e => setField(e.target.value)}
+              className="w-full"
+            />
+            <div className="font-display text-3xl">
+              <span className="text-score-green">{ourScore}</span>
+              <span className="text-navy-400"> - </span>
+              <span className="text-score-red">{theirScore}</span>
+            </div>
           </div>
 
           {/* Team Summary */}
@@ -846,11 +892,14 @@ Sam,0,1,D,0,1`}
         <div className="px-4 pt-2">
           <button
             onClick={saveGame}
-            disabled={saving}
-            className="btn-gold w-full text-lg py-5"
+            disabled={saving || !opponent.trim()}
+            className="btn-gold w-full text-lg py-5 disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Game'}
           </button>
+          {!opponent.trim() && (
+            <p className="text-score-red text-xs text-center mt-2">Enter opponent name above to save</p>
+          )}
         </div>
       </div>
     );
