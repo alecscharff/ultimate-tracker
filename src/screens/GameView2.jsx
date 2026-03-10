@@ -10,6 +10,7 @@ import SubModal from '../components/SubModal';
 import PointStrip from '../components/PointStrip';
 import PointDetailView from '../components/PointDetailView';
 import GameActionBar from '../components/GameActionBar';
+import GameSummaryModal from '../components/GameSummaryModal';
 
 export default function GameView2() {
   const navigate = useNavigate();
@@ -18,7 +19,7 @@ export default function GameView2() {
 
   const [selectedPointIndex, setSelectedPointIndex] = useState(null); // null = current live point
   const [showSubModal, setShowSubModal] = useState(false);
-  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showGameSummary, setShowGameSummary] = useState(false);
   const [undoAvailable, setUndoAvailable] = useState(null);
   const [tick, setTick] = useState(0);
   const [copied, setCopied] = useState(false);
@@ -152,6 +153,10 @@ export default function GameView2() {
   }
 
   async function handleEndGame() {
+    setShowGameSummary(true);
+  }
+
+  async function confirmEndGame() {
     await saveAndEndGame();
     syncGameToSheet(state, players).catch(() => {});
     navigate('/');
@@ -179,61 +184,6 @@ export default function GameView2() {
   const isViewingCurrentPoint = selectedPointIndex === null;
 
   if (!state.active && state.phase !== 'finished') return null;
-
-  // Finished phase — show the end-game overlay instead of the normal game view
-  if (state.phase === 'finished') {
-    return (
-      <div className="min-h-dvh flex flex-col bg-navy-950 text-white">
-        <Scoreboard
-          ourScore={state.ourScore}
-          theirScore={state.theirScore}
-          opponent={state.opponent}
-          gameStartedAt={state.gameStartedAt}
-          pointStartedAt={state.pointStartedAt}
-          phase={state.phase}
-          currentPointNumber={state.currentPointNumber}
-        />
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center w-full max-w-sm">
-            <h2 className="font-display text-4xl mb-2">
-              {state.ourScore > state.theirScore ? (
-                <span className="text-score-green">VICTORY</span>
-              ) : state.ourScore < state.theirScore ? (
-                <span className="text-score-red">DEFEAT</span>
-              ) : (
-                <span className="text-gold">TIE GAME</span>
-              )}
-            </h2>
-            <div className="font-display text-6xl text-white my-4">
-              {state.ourScore} - {state.theirScore}
-            </div>
-            <p className="text-navy-300 mb-8">vs {state.opponent}</p>
-            {showEndConfirm ? (
-              <div className="card p-4 border-score-red/50 space-y-3 mb-4">
-                <p className="text-sm text-center">End game and save? This cannot be undone.</p>
-                <div className="flex gap-3">
-                  <button onClick={handleEndGame} className="flex-1 btn bg-score-red text-white">
-                    Confirm End
-                  </button>
-                  <button onClick={() => setShowEndConfirm(false)} className="flex-1 btn-primary">
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowEndConfirm(true)}
-                className="btn-gold w-full text-lg"
-                style={{ minHeight: 52 }}
-              >
-                Save & Exit
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Halftime overlay
   if (state.phase === 'halftime') {
@@ -349,7 +299,7 @@ export default function GameView2() {
         onWeScored={handleWeScored}
         onTheyScored={handleTheyScored}
         onTimeout={handleTimeout}
-        onEndGame={() => setShowEndConfirm(true)}
+        onEndGame={handleEndGame}
         onBackToCurrent={() => setSelectedPointIndex(null)}
       />
 
@@ -365,6 +315,16 @@ export default function GameView2() {
           dispatch({ type: ACTIONS.DISMISS_SUB });
         }}
       />
+
+      {/* Game summary modal — shown before saving */}
+      {showGameSummary && (
+        <GameSummaryModal
+          gameState={state}
+          players={players}
+          onConfirmEnd={confirmEndGame}
+          onGoBack={() => setShowGameSummary(false)}
+        />
+      )}
     </div>
   );
 }

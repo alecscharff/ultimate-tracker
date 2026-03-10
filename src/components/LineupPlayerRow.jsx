@@ -16,15 +16,18 @@ export default function LineupPlayerRow({
   disabled,
   statCounts = { D: 0, assist: 0, goal: 0 },
   onStatTap,
+  onCheckInToggle,
+  isCheckedIn,
 }) {
   if (!player) return null;
 
   const genderColor = player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500';
   const benchLabel = !isOnField ? formatBenchTime(benchTimeMs) : null;
   const totalMinutes = totalPlayingTimeMs ? Math.round(totalPlayingTimeMs / 60000) : null;
+  const rowOpacity = onCheckInToggle !== undefined && !isCheckedIn ? 'opacity-40' : '';
 
   return (
-    <div className="bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px]">
+    <div className={`bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px] ${rowOpacity}`}>
       {/* Gender dot */}
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${genderColor}`} />
 
@@ -77,6 +80,18 @@ export default function LineupPlayerRow({
           title="Edit stats"
         >
           +
+        </button>
+      )}
+
+      {/* Check-in toggle — only rendered for bench rows during current point */}
+      {onCheckInToggle !== undefined && (
+        <button
+          onClick={onCheckInToggle}
+          className="flex-shrink-0 flex items-center justify-center rounded-lg text-lg leading-none text-navy-300 active:bg-navy-700 transition-colors"
+          style={{ minHeight: 36, minWidth: 36 }}
+          title={isCheckedIn ? 'Check out' : 'Check in'}
+        >
+          {isCheckedIn ? '✓' : '○'}
         </button>
       )}
 

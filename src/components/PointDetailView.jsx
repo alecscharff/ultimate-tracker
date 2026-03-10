@@ -1,14 +1,23 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ACTIONS } from '../context/GameContext';
 import { getDetailedPlayerStats, suggestLineup } from '../utils/lineup';
 import LineupPlayerRow from './LineupPlayerRow';
-import StatAttribution from './StatAttribution';
+import PlayerStatModal from './PlayerStatModal';
 
 const RATIO_OPTIONS = [
   { bx: 4, gx: 1 },
   { bx: 3, gx: 2 },
   { bx: 2, gx: 3 },
   { bx: 1, gx: 4 },
+];
+
+const RATIO_PRESETS = [
+  { bx: 3, gx: 2 },
+  { bx: 2, gx: 3 },
+  { bx: 4, gx: 1 },
+  { bx: 1, gx: 4 },
+  { bx: 5, gx: 0 },
+  { bx: 0, gx: 5 },
 ];
 
 export default function PointDetailView({
@@ -38,18 +47,30 @@ export default function PointDetailView({
   // Current point is at index === points.length (0-based)
   const currentPointIndex = points.length;
 
+  // Local state for future-point ratio override (view-only, not persisted to game state)
+  const [overrideRatioForFuture, setOverrideRatioForFuture] = useState(null);
+  const [showRatioModal, setShowRatioModal] = useState(false);
+
+  // When viewing a future point, compute a projected lineup for the active override ratio
+  const projectedLineup = useMemo(() => {
+    if (!isFuturePoint || !overrideRatioForFuture) return null;
+    return suggestLineup(players, checkedInPlayerIds, overrideRatioForFuture, points, equalizeBy);
+  }, [isFuturePoint, overrideRatioForFuture, players, checkedInPlayerIds, points, equalizeBy]);
+
   // Resolve the lineup to display
   const displayLineupIds = useMemo(() => {
     if (isPastPoint) {
       return points[selectedPointIndex]?.lineup || [];
     }
     if (isFuturePoint) {
+      // Override ratio preview takes priority over the default futureLineups entry
+      if (overrideRatioForFuture && projectedLineup) return projectedLineup;
       const preview = futureLineups.find(f => f.pointNumber - 1 === selectedPointIndex);
       return preview?.lineup || [];
     }
     // Current point
     return onField;
-  }, [isPastPoint, isFuturePoint, selectedPointIndex, points, futureLineups, onField]);
+  }, [isPastPoint, isFuturePoint, selectedPointIndex, points, futureLineups, onField, overrideRatioForFuture, projectedLineup]);
 
   // Bench players for current point (sorted by bench time desc)
   const now = Date.now();
@@ -63,6 +84,16 @@ export default function PointDetailView({
       return sb.benchTimeMs - sa.benchTimeMs;
     });
   }, [isCurrentPoint, displayLineupIds, checkedInPlayerIds, points, now]);
+
+  // Checked-out players (not on field, not in checkedInPlayerIds) for current point
+  const checkedOutPlayerIds = useMemo(() => {
+    if (!isCurrentPoint) return [];
+    const onFieldSet = new Set(displayLineupIds);
+    const checkedInSet = new Set(checkedInPlayerIds);
+    return players
+      .map(p => p.id)
+      .filter(id => !onFieldSet.has(id) && !checkedInSet.has(id));
+  }, [isCurrentPoint, displayLineupIds, checkedInPlayerIds, players]);
 
   // Stats for the viewed point
   const viewedStats = useMemo(() => {
@@ -87,11 +118,13 @@ export default function PointDetailView({
       return { bx, gx };
     }
     if (isFuturePoint) {
+      // Coach-selected override for preview takes priority
+      if (overrideRatioForFuture) return overrideRatioForFuture;
       const preview = futureLineups.find(f => f.pointNumber - 1 === selectedPointIndex);
       return preview?.ratio || currentRatio;
     }
     return currentRatio;
-  }, [isPastPoint, isFuturePoint, selectedPointIndex, points, players, futureLineups, currentRatio]);
+  }, [isPastPoint, isFuturePoint, selectedPointIndex, points, players, futureLineups, currentRatio, overrideRatioForFuture]);
 
   function handleMoveToField(playerId) {
     if (phase !== 'pre-point') return;
@@ -107,6 +140,10 @@ export default function PointDetailView({
   }
 
   function handleRatioTap() {
+    if (isFuturePoint) {
+      setShowRatioModal(true);
+      return;
+    }
     if (!isCurrentPoint || phase !== 'pre-point') return;
     const currentIdx = RATIO_OPTIONS.findIndex(
       r => r.bx === currentRatio.bx && r.gx === currentRatio.gx
@@ -119,11 +156,50 @@ export default function PointDetailView({
   }
 
   function handleAddStat(pointIndex, playerId, statType) {
-    dispatch({ type: ACTIONS.ADD_POINT_STAT, pointIndex, playerId, statType });
+    dispatch({
+      type: ACTIONS.ADD_POINT_STAT,
+      pointIndex: pointIndex === null ? gameState.points.length : pointIndex,
+      playerId,
+      statType,
+    });
   }
 
   function handleRemoveStat(pointIndex, playerId, statType) {
-    dispatch({ type: ACTIONS.REMOVE_POINT_STAT, pointIndex, playerId, statType });
+    dispatch({
+      type: ACTIONS.REMOVE_POINT_STAT,
+      pointIndex: pointIndex === null ? gameState.points.length : pointIndex,
+      playerId,
+      statType,
+    });
+  }
+
+  const [statModalPlayerId, setStatModalPlayerId] = useState(null);
+
+  function countStatsForPlayer(statsArray, playerId) {
+    const counts = { D: 0, assist: 0, goal: 0 };
+    for (const s of statsArray) {
+      if (s.playerId === playerId && counts[s.type] !== undefined) {
+        counts[s.type]++;
+      }
+    }
+    return counts;
+  }
+
+  function getAccumulatedStatCounts(playerId, allPoints, currentPointStats) {
+    const counts = { D: 0, assist: 0, goal: 0 };
+    for (const pt of (allPoints || [])) {
+      for (const s of (pt.stats || [])) {
+        if (s.playerId === playerId && counts[s.type] !== undefined) {
+          counts[s.type]++;
+        }
+      }
+    }
+    for (const s of (currentPointStats || [])) {
+      if (s.playerId === playerId && counts[s.type] !== undefined) {
+        counts[s.type]++;
+      }
+    }
+    return counts;
   }
 
   const canMove = isCurrentPoint && phase === 'pre-point';
@@ -135,16 +211,16 @@ export default function PointDetailView({
       <div className="flex items-center gap-2 mb-4">
         <button
           onClick={handleRatioTap}
-          disabled={!canMove}
+          disabled={!canMove && !isFuturePoint}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-            canMove
-              ? 'bg-gold/20 text-gold border border-gold/40 active:bg-gold/30'
+            canMove || isFuturePoint
+              ? 'bg-gold/20 text-gold border border-gold/40 active:bg-gold/30 cursor-pointer'
               : 'bg-navy-800 text-navy-300 border border-navy-700 cursor-default'
           }`}
           style={{ minHeight: 36 }}
         >
           <span>{displayRatio.bx}bx / {displayRatio.gx}gx</span>
-          {canMove && <span className="text-xs opacity-60">tap to change</span>}
+          {(canMove || isFuturePoint) && <span className="text-xs opacity-60">tap to change</span>}
         </button>
         {isPastPoint && (
           <span className="text-xs text-navy-400 italic">Past point (read-only)</span>
@@ -157,21 +233,28 @@ export default function PointDetailView({
       {/* On Field section */}
       <div className={contentOpacity}>
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs uppercase text-navy-300 font-semibold">
-            On Field ({displayLineupIds.length})
-          </span>
+          {isFuturePoint ? (
+            <span className="text-xs uppercase text-navy-300 font-semibold italic">
+              {overrideRatioForFuture
+                ? `Projected Lineup (override: ${overrideRatioForFuture.bx}bx/${overrideRatioForFuture.gx}gx)`
+                : `Projected Lineup (${displayRatio.bx}bx/${displayRatio.gx}gx)`
+              } ({displayLineupIds.length})
+            </span>
+          ) : (
+            <span className="text-xs uppercase text-navy-300 font-semibold">
+              On Field ({displayLineupIds.length})
+            </span>
+          )}
         </div>
 
         <div>
           {displayLineupIds.map(id => {
             const player = players.find(p => p.id === id);
             const stats = getDetailedPlayerStats(id, points, now);
-            const pointStats = viewedStats.filter(s => s.playerId === id);
-            const statCounts = {
-              D: pointStats.filter(s => s.type === 'D').length,
-              assist: pointStats.filter(s => s.type === 'assist').length,
-              goal: pointStats.filter(s => s.type === 'goal').length,
-            };
+            const statCounts =
+              isCurrentPoint
+                ? getAccumulatedStatCounts(id, gameState.points, gameState.currentStats)
+                : countStatsForPlayer(viewedStats, id);
             return (
               <LineupPlayerRow
                 key={id}
@@ -183,6 +266,7 @@ export default function PointDetailView({
                 onMove={canMove ? () => handleMoveToBench(id) : null}
                 disabled={!canMove}
                 statCounts={statCounts}
+                onStatTap={!isFuturePoint ? () => setStatModalPlayerId(id) : undefined}
               />
             );
           })}
@@ -215,27 +299,83 @@ export default function PointDetailView({
                   isOnField={false}
                   onMove={canMove ? () => handleMoveToField(id) : null}
                   disabled={!canMove}
+                  statCounts={{ D: 0, assist: 0, goal: 0 }}
+                  isCheckedIn={true}
+                  onCheckInToggle={() =>
+                    dispatch({ type: ACTIONS.CHECK_OUT_PLAYER, playerId: id })
+                  }
                 />
               );
             })}
-            {benchPlayerIds.length === 0 && (
+            {checkedOutPlayerIds.map(id => {
+              const player = players.find(p => p.id === id);
+              const stats = getDetailedPlayerStats(id, points, now);
+              return (
+                <LineupPlayerRow
+                  key={id}
+                  player={player}
+                  pointsPlayed={stats.pointsPlayed}
+                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                  benchTimeMs={stats.benchTimeMs}
+                  isOnField={false}
+                  onMove={null}
+                  disabled={true}
+                  statCounts={{ D: 0, assist: 0, goal: 0 }}
+                  isCheckedIn={false}
+                  onCheckInToggle={() =>
+                    dispatch({ type: ACTIONS.CHECK_IN_PLAYER, playerId: id })
+                  }
+                />
+              );
+            })}
+            {benchPlayerIds.length === 0 && checkedOutPlayerIds.length === 0 && (
               <div className="text-xs text-navy-400 py-2 text-center">No players on bench</div>
             )}
           </div>
         </>
       )}
 
-      {/* Stat attribution — shown for current and past points, not future */}
-      {!isFuturePoint && (
-        <StatAttribution
-          pointIndex={statPointIndex}
-          stats={viewedStats}
-          lineupPlayerIds={displayLineupIds}
-          players={players}
+      {statModalPlayerId && (
+        <PlayerStatModal
+          player={players.find(p => p.id === statModalPlayerId)}
+          pointIndex={selectedPointIndex}
+          stats={(selectedPointIndex === null ? gameState.currentStats : gameState.points[selectedPointIndex]?.stats || [])
+            .filter(s => s.playerId === statModalPlayerId)}
           onAddStat={handleAddStat}
           onRemoveStat={handleRemoveStat}
-          editable={isCurrentPoint || isPastPoint}
+          onClose={() => setStatModalPlayerId(null)}
         />
+      )}
+
+      {/* Ratio picker modal — only for future points */}
+      {showRatioModal && isFuturePoint && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-40"
+          onClick={() => setShowRatioModal(false)}
+        >
+          <div
+            className="bg-navy-800 rounded-xl p-4 max-w-sm mx-4 w-full space-y-2"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm font-semibold text-gold mb-3">Select Gender Ratio</p>
+            {RATIO_PRESETS.map(ratio => (
+              <button
+                key={`${ratio.bx}/${ratio.gx}`}
+                onClick={() => {
+                  setOverrideRatioForFuture(ratio);
+                  setShowRatioModal(false);
+                }}
+                className={`w-full px-3 py-2 rounded-lg text-sm font-semibold active:scale-95 transition-transform ${
+                  displayRatio.bx === ratio.bx && displayRatio.gx === ratio.gx
+                    ? 'bg-gold text-navy-950'
+                    : 'bg-navy-700 text-white active:bg-navy-600'
+                }`}
+              >
+                {ratio.bx}bx / {ratio.gx}gx
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
