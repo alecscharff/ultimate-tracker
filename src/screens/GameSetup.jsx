@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { usePlayers } from '../hooks/usePlayers';
 import { getSetting, setSetting } from '../services/settingsService';
 import { useGame } from '../context/GameContext';
@@ -17,15 +17,19 @@ const RATIO_PRESETS = [
 
 export default function GameSetup() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { state: gameState, dispatch } = useGame();
   const players = usePlayers();
 
-  const [opponent, setOpponent] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  // Check if we have a pre-filled game from Home screen
+  const prefilledGame = location.state?.prefilledGame;
+
+  const [opponent, setOpponent] = useState(prefilledGame?.opponent || '');
+  const [date, setDate] = useState(prefilledGame?.date || new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState(
-    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+    prefilledGame?.startTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
   );
-  const [field, setField] = useState('');
+  const [field, setField] = useState(prefilledGame?.field || '');
   const [selectedRatio, setSelectedRatio] = useState(2); // Alt 3/2 & 2/3
   const [checkedIn, setCheckedIn] = useState(new Set());
 
