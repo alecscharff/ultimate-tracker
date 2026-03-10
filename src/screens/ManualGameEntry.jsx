@@ -35,6 +35,10 @@ export default function ManualGameEntry() {
   const [currentLineup, setCurrentLineup] = useState(new Set());
   const [saving, setSaving] = useState(false);
 
+  // Entry mode
+  const [entryMode, setEntryMode] = useState('quick'); // 'quick' | 'detailed'
+  const [expandedPointIndex, setExpandedPointIndex] = useState(null);
+
   // Handlers
   function togglePlayer(id) {
     setCheckedInPlayerIds(prev => {
@@ -60,7 +64,7 @@ export default function ManualGameEntry() {
 
   function startStep2() {
     if (!opponent.trim() || checkedInPlayerIds.size < 5) return;
-    setCurrentLineup(new Set(checkedInPlayerIds)); // default all checked-in
+    setCurrentLineup(new Set()); // default empty
     setStep(2);
   }
 
@@ -75,7 +79,7 @@ export default function ManualGameEntry() {
       endedAt: null,
     };
     setPoints([...points, point]);
-    setCurrentLineup(new Set(checkedInPlayerIds)); // reset to all for next point
+    setCurrentLineup(new Set()); // reset to empty for next point
   }
 
   function handleUndoLastPoint() {
@@ -98,6 +102,49 @@ export default function ManualGameEntry() {
       const updated = [...prev];
       const pt = updated[pointIndex];
       pt.stats = (pt.stats || []).filter(s => !(s.playerId === playerId && s.type === statType));
+      return updated;
+    });
+  }
+
+  function handleQuickAddPoint(scoredBy) {
+    const point = {
+      number: points.length + 1,
+      lineup: [],
+      scoredBy,
+      stats: [],
+      midPointSubs: [],
+      startedAt: null,
+      endedAt: null,
+    };
+    setPoints(prev => [...prev, point]);
+    setExpandedPointIndex(null);
+  }
+
+  function handleTogglePointLineupPlayer(pointIndex, playerId) {
+    setPoints(prev => {
+      const updated = [...prev];
+      const pt = { ...updated[pointIndex] };
+      const lineupSet = new Set(pt.lineup);
+      if (lineupSet.has(playerId)) lineupSet.delete(playerId);
+      else lineupSet.add(playerId);
+      pt.lineup = [...lineupSet];
+      updated[pointIndex] = pt;
+      return updated;
+    });
+  }
+
+  function handleSelectAllPointLineup(pointIndex) {
+    setPoints(prev => {
+      const updated = [...prev];
+      updated[pointIndex] = { ...updated[pointIndex], lineup: [...checkedInPlayerIds] };
+      return updated;
+    });
+  }
+
+  function handleClearPointLineup(pointIndex) {
+    setPoints(prev => {
+      const updated = [...prev];
+      updated[pointIndex] = { ...updated[pointIndex], lineup: [] };
       return updated;
     });
   }
@@ -205,8 +252,8 @@ export default function ManualGameEntry() {
                   }`}
                   style={{ minHeight: '44px' }}
                 >
-                  <div className="flex items-center gap-2">
-                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center ${
                       checkedInPlayerIds.has(player.id)
                         ? 'border-gold bg-gold'
                         : 'border-navy-600'
@@ -217,13 +264,11 @@ export default function ManualGameEntry() {
                         </svg>
                       )}
                     </div>
-                    <span className="font-semibold">{player.name}</span>
-                    <span className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                    <span className="font-semibold truncate flex-1 min-w-0">{player.name}</span>
+                    <span className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded text-center w-8 flex-shrink-0 ${
                       player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
-                    }`}>
-                      {player.gender}
-                    </span>
-                    <span className="text-[11px] text-navy-300 font-mono">G{player.grade}</span>
+                    }`}>{player.gender}</span>
+                    <span className="text-[11px] text-navy-300 font-mono w-8 text-center flex-shrink-0">G{player.grade}</span>
                   </div>
                 </button>
               ))}
@@ -262,108 +307,184 @@ export default function ManualGameEntry() {
     const theirScore = points.filter(p => p.scoredBy === 'them').length;
 
     return (
-      <div className="min-h-dvh pb-8">
+      <div className="min-h-dvh flex flex-col">
+        {/* Header */}
         <div className="sticky top-0 z-10 bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center gap-3">
           <button onClick={() => setStep(1)} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
           <h1 className="font-display text-2xl">
-            <span className="text-gold">{ourScore}</span> - <span className="text-score-red">{theirScore}</span>
+            <span className="text-score-green">{ourScore}</span>
+            <span className="text-navy-300"> - </span>
+            <span className="text-score-red">{theirScore}</span>
           </h1>
+          <div className="ml-auto flex bg-navy-800 rounded-lg p-0.5 border border-navy-700">
+            <button
+              onClick={() => setEntryMode('quick')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                entryMode === 'quick' ? 'bg-gold text-navy-950' : 'text-navy-300 active:text-white'
+              }`}
+            >
+              Quick
+            </button>
+            <button
+              onClick={() => setEntryMode('detailed')}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-md transition-colors ${
+                entryMode === 'detailed' ? 'bg-gold text-navy-950' : 'text-navy-300 active:text-white'
+              }`}
+            >
+              Detailed
+            </button>
+          </div>
         </div>
 
-        <div className="px-4 py-4 space-y-4">
-          {/* Lineup selector */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs uppercase text-navy-300 font-semibold">
-                Select Lineup for Next Point ({currentLineup.size})
-              </label>
-              <button onClick={selectAllLineup} className="text-xs text-navy-300 underline active:text-white">
-                All
-              </button>
+        {entryMode === 'quick' ? (
+          <div className="flex flex-col flex-1">
+            {/* Point list */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 pb-40 space-y-2">
+              {points.length === 0 && (
+                <div className="text-center text-navy-400 py-12 text-sm">
+                  Tap "We Scored" or "They Scored" to add points
+                </div>
+              )}
+              {points.map((pt, i) => (
+                <QuickEntryPointRow
+                  key={i}
+                  point={pt}
+                  index={i}
+                  isExpanded={expandedPointIndex === i}
+                  onToggleExpand={() => setExpandedPointIndex(expandedPointIndex === i ? null : i)}
+                  checkedInPlayerIds={checkedInPlayerIds}
+                  players={players}
+                  onTogglePlayer={handleTogglePointLineupPlayer}
+                  onSelectAll={() => handleSelectAllPointLineup(i)}
+                  onClear={() => handleClearPointLineup(i)}
+                  onAddStat={handleAddStat}
+                  onRemoveStat={handleRemoveStat}
+                />
+              ))}
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {[...checkedInPlayerIds].map(id => {
-                const player = players.find(p => p.id === id);
-                if (!player) return null;
-                return (
-                  <button
-                    key={id}
-                    onClick={() => toggleLineupPlayer(id)}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      currentLineup.has(id)
-                        ? 'bg-gold text-navy-950'
-                        : 'bg-navy-800 text-navy-300 border border-navy-700'
-                    }`}
-                    style={{ minHeight: '36px' }}
-                  >
-                    {player.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Score buttons - only show if lineup selected */}
-          {currentLineup.size > 0 && (
-            <PointScoreSection
-              onScored={(scoredBy, stats) => {
-                handleAddPoint(scoredBy, stats);
-              }}
-              lineupPlayerIds={[...currentLineup]}
-              players={players}
-            />
-          )}
-
-          {/* Point history */}
-          {points.length > 0 && (
-            <div>
-              <label className="text-xs uppercase text-navy-300 font-semibold mb-2 block">
-                Point History ({points.length})
-              </label>
-              <div className="space-y-2">
-                {points.map((pt, i) => (
-                  <div key={i} className="card px-4 py-3 bg-navy-800/40">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-semibold">
-                        Point {i + 1}: <span className={pt.scoredBy === 'us' ? 'text-score-green' : 'text-score-red'}>
-                          {pt.scoredBy === 'us' ? 'Ours' : 'Theirs'}
-                        </span>
-                      </div>
-                      <div className="text-xs text-navy-400">
-                        {pt.lineup.length} players on field
-                      </div>
-                    </div>
-                    <div className="text-xs text-navy-400">
-                      {pt.lineup.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(', ')}
-                    </div>
-                    {pt.stats && pt.stats.length > 0 && (
-                      <div className="text-xs text-navy-400 mt-1">
-                        Stats: {pt.stats.map(s => `${players.find(p => p.id === s.playerId)?.name || 'Unknown'} (${s.type})`).join(', ')}
-                      </div>
-                    )}
-                  </div>
-                ))}
+            {/* Sticky bottom bar */}
+            <div className="fixed bottom-0 left-0 right-0 bg-navy-900 border-t border-navy-700 px-4 py-3 space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleQuickAddPoint('us')}
+                  className="bg-score-green text-white py-5 rounded-xl font-bold text-lg active:bg-score-green/80"
+                  style={{ minHeight: '56px' }}
+                >
+                  We Scored
+                </button>
+                <button
+                  onClick={() => handleQuickAddPoint('them')}
+                  className="bg-score-red text-white py-5 rounded-xl font-bold text-lg active:bg-score-red/80"
+                  style={{ minHeight: '56px' }}
+                >
+                  They Scored
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleUndoLastPoint}
+                  disabled={points.length === 0}
+                  className="btn-primary flex-1 py-3 text-sm disabled:opacity-50"
+                >
+                  Undo Last
+                </button>
+                <button
+                  onClick={() => setStep(3)}
+                  className="btn-gold flex-1 py-3 text-sm"
+                >
+                  Done ({points.length} pts)
+                </button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          /* Detailed mode — existing UI */
+          <div className="px-4 py-4 pb-8 space-y-4">
+            {/* Lineup selector */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs uppercase text-navy-300 font-semibold">
+                  Select Lineup for Next Point ({currentLineup.size})
+                </label>
+                <button onClick={selectAllLineup} className="text-xs text-navy-300 underline active:text-white">
+                  All
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {[...checkedInPlayerIds].map(id => {
+                  const player = players.find(p => p.id === id);
+                  if (!player) return null;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => toggleLineupPlayer(id)}
+                      className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        currentLineup.has(id)
+                          ? 'bg-gold text-navy-950'
+                          : 'bg-navy-800 text-navy-300 border border-navy-700'
+                      }`}
+                      style={{ minHeight: '36px' }}
+                    >
+                      {player.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-        {/* Action buttons */}
-        <div className="px-4 pt-2 space-y-2">
-          <button
-            onClick={() => setStep(3)}
-            className="btn-gold w-full text-lg py-5"
-          >
-            Finished Entering Points
-          </button>
-          <button
-            onClick={handleUndoLastPoint}
-            disabled={points.length === 0}
-            className="btn-primary w-full text-lg py-3 disabled:opacity-50"
-          >
-            Undo Last Point
-          </button>
-        </div>
+            {currentLineup.size > 0 && (
+              <PointScoreSection
+                onScored={(scoredBy, stats) => handleAddPoint(scoredBy, stats)}
+                lineupPlayerIds={[...currentLineup]}
+                players={players}
+              />
+            )}
+
+            {points.length > 0 && (
+              <div>
+                <label className="text-xs uppercase text-navy-300 font-semibold mb-2 block">
+                  Point History ({points.length})
+                </label>
+                <div className="space-y-2">
+                  {points.map((pt, i) => (
+                    <div key={i} className="card px-4 py-3 bg-navy-800/40">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-semibold">
+                          Point {i + 1}: <span className={pt.scoredBy === 'us' ? 'text-score-green' : 'text-score-red'}>
+                            {pt.scoredBy === 'us' ? 'Ours' : 'Theirs'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-navy-400">{pt.lineup.length} players</div>
+                      </div>
+                      <div className="text-xs text-navy-400">
+                        {pt.lineup.map(id => players.find(p => p.id === id)?.name || 'Unknown').join(', ')}
+                      </div>
+                      {pt.stats && pt.stats.length > 0 && (
+                        <div className="text-xs text-navy-400 mt-1">
+                          Stats: {pt.stats.map(s => `${players.find(p => p.id === s.playerId)?.name || 'Unknown'} (${s.type})`).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 pt-2">
+              <button onClick={() => setStep(3)} className="btn-gold w-full text-lg py-5">
+                Finished Entering Points
+              </button>
+              <button
+                onClick={handleUndoLastPoint}
+                disabled={points.length === 0}
+                className="btn-primary w-full text-lg py-3 disabled:opacity-50"
+              >
+                Undo Last Point
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -404,11 +525,12 @@ export default function ManualGameEntry() {
 
                 return (
                   <div key={pid} className="flex items-center justify-between text-sm bg-navy-800 rounded-lg px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{player.name}</span>
-                      <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded ${
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="font-medium truncate flex-1 min-w-0">{player.name}</span>
+                      <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded text-center w-8 flex-shrink-0 ${
                         player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
                       }`}>{player.gender}</span>
+                      <span className="text-[10px] text-navy-300 font-mono w-8 text-center flex-shrink-0">G{player.grade}</span>
                     </div>
                     <div className="flex gap-3 text-xs text-navy-300">
                       <span>{stats.pointsPlayed} pts</span>
@@ -530,6 +652,77 @@ function PointScoreSection({ onScored, lineupPlayerIds, players }) {
               Cancel
             </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function QuickEntryPointRow({ point, index, isExpanded, onToggleExpand, checkedInPlayerIds, players, onTogglePlayer, onSelectAll, onClear, onAddStat, onRemoveStat }) {
+  return (
+    <div className="card overflow-hidden">
+      <button
+        onClick={onToggleExpand}
+        className="w-full px-4 py-3 flex items-center justify-between text-left active:bg-navy-700/50"
+        style={{ minHeight: '48px' }}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-navy-300 w-7">#{index + 1}</span>
+          <span className={`text-sm font-semibold ${point.scoredBy === 'us' ? 'text-score-green' : 'text-score-red'}`}>
+            {point.scoredBy === 'us' ? 'Us' : 'Them'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-navy-400">
+            {point.lineup.length > 0 ? `${point.lineup.length} players` : 'No lineup'}
+            {point.stats?.length > 0 ? ` · ${point.stats.length} stats` : ''}
+          </span>
+          <span className="text-navy-500 text-xs">{isExpanded ? '▲' : '▼'}</span>
+        </div>
+      </button>
+
+      {isExpanded && (
+        <div className="px-4 pb-4 border-t border-navy-700 pt-3 space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-navy-300 font-semibold uppercase">Lineup</span>
+              <div className="flex gap-3 text-xs">
+                <button onClick={onSelectAll} className="text-navy-300 underline active:text-white">All</button>
+                <button onClick={onClear} className="text-navy-300 underline active:text-white">None</button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {[...checkedInPlayerIds].map(id => {
+                const player = players.find(p => p.id === id);
+                if (!player) return null;
+                const isSelected = point.lineup.includes(id);
+                return (
+                  <button
+                    key={id}
+                    onClick={() => onTogglePlayer(index, id)}
+                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                      isSelected
+                        ? 'bg-gold text-navy-950'
+                        : 'bg-navy-800 text-navy-300 border border-navy-700'
+                    }`}
+                    style={{ minHeight: '36px' }}
+                  >
+                    {player.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <StatAttribution
+            pointIndex={index}
+            stats={point.stats || []}
+            lineupPlayerIds={point.lineup.length > 0 ? point.lineup : [...checkedInPlayerIds]}
+            players={players}
+            onAddStat={onAddStat}
+            onRemoveStat={onRemoveStat}
+            editable={true}
+          />
         </div>
       )}
     </div>

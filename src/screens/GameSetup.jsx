@@ -297,8 +297,8 @@ export default function GameSetup() {
                 }`}
                 style={{ minHeight: '44px' }}
               >
-                <div className="flex items-center gap-2">
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center ${
                     checkedIn.has(player.id)
                       ? 'border-gold bg-gold'
                       : 'border-navy-600'
@@ -309,13 +309,11 @@ export default function GameSetup() {
                       </svg>
                     )}
                   </div>
-                  <span className="font-semibold">{player.name}</span>
-                  <span className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                  <span className="font-semibold truncate flex-1 min-w-0">{player.name}</span>
+                  <span className={`text-[11px] font-bold uppercase px-1.5 py-0.5 rounded text-center w-8 flex-shrink-0 ${
                     player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
-                  }`}>
-                    {player.gender}
-                  </span>
-                  <span className="text-[11px] text-navy-300 font-mono">G{player.grade}</span>
+                  }`}>{player.gender}</span>
+                  <span className="text-[11px] text-navy-300 font-mono w-8 text-center flex-shrink-0">G{player.grade}</span>
                 </div>
               </button>
             ))}

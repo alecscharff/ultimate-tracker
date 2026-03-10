@@ -143,11 +143,12 @@ export default function PastGames() {
 
                       return (
                         <div key={pid} className="flex items-center justify-between text-sm bg-navy-900 rounded-lg px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{player.name}</span>
-                            <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded ${
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className="font-medium truncate flex-1 min-w-0">{player.name}</span>
+                            <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded text-center w-8 flex-shrink-0 ${
                               player.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
                             }`}>{player.gender}</span>
+                            <span className="text-[10px] text-navy-300 font-mono w-8 text-center flex-shrink-0">G{player.grade}</span>
                           </div>
                           <div className="flex gap-3 text-xs text-navy-300">
                             <span>{stats.pointsPlayed} pts</span>

@@ -302,12 +302,12 @@ export default function Roster() {
                           isDuplicate ? 'opacity-40' : ''
                         }`}
                       >
-                        <span className="font-medium">{p.name}</span>
-                        <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded ${
+                        <span className="font-medium truncate flex-1 min-w-0">{p.name}</span>
+                        <span className={`text-[10px] font-bold uppercase px-1 py-0.5 rounded text-center w-8 flex-shrink-0 ${
                           p.gender === 'gx' ? 'bg-purple-600' : 'bg-navy-600'
                         }`}>{p.gender}</span>
-                        <span className="text-[10px] text-navy-300 font-mono">G{p.grade}</span>
-                        {isDuplicate && <span className="text-[10px] text-navy-400">(already on roster)</span>}
+                        <span className="text-[10px] text-navy-300 font-mono w-8 text-center flex-shrink-0">G{p.grade}</span>
+                        {isDuplicate && <span className="text-[10px] text-navy-400 flex-shrink-0">(already on roster)</span>}
                       </div>
                     );
                   })}
