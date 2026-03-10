@@ -121,3 +121,26 @@ html {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
+
+/* Safe area padding for fixed bottom bars */
+.pb-safe {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+}
+
+/* Horizontal point strip scrolling */
+.point-strip {
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.point-strip > * {
+  scroll-snap-align: center;
+}
+
+/* Slide-up animation for bottom sheets */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}

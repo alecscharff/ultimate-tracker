@@ -33,23 +33,69 @@ export function getPlayerStats(playerId, points) {
   return { pointsPlayed, minutesPlayed, lastPointNumber, scores, assists, ds, greatThrows, plusMinus };
 }
 
+/**
+ * Compute per-player bench/playing stats for display in the UI.
+ * Returns an object keyed by playerId with:
+ * - pointsPlayed: number
+ * - totalPlayingTimeMs: number
+ * - lastPointEndedAt: timestamp or null
+ * - benchTimeMs: ms since their last point ended (relative to `now`)
+ * - pointsSinceLastPlay: number of points since they last played
+ */
+export function getDetailedPlayerStats(playerId, points, now = Date.now()) {
+  let pointsPlayed = 0;
+  let totalPlayingTimeMs = 0;
+  let lastPointEndedAt = null;
+  let lastPlayedIndex = -1;
+
+  points.forEach((pt, i) => {
+    if (pt.lineup && pt.lineup.includes(playerId)) {
+      pointsPlayed++;
+      lastPlayedIndex = i;
+      if (pt.startedAt && pt.endedAt) {
+        totalPlayingTimeMs += pt.endedAt - pt.startedAt;
+        lastPointEndedAt = pt.endedAt;
+      }
+    }
+  });
+
+  const benchTimeMs = lastPointEndedAt !== null ? now - lastPointEndedAt : now;
+  const pointsSinceLastPlay = lastPlayedIndex === -1
+    ? points.length
+    : points.length - 1 - lastPlayedIndex;
+
+  return { pointsPlayed, totalPlayingTimeMs, lastPointEndedAt, benchTimeMs, pointsSinceLastPlay };
+}
+
 export function suggestLineup(players, checkedInIds, ratio, points, equalizeBy = 'points') {
   const available = players.filter(p => checkedInIds.includes(p.id));
   if (available.length === 0) return [];
 
-  const stats = {};
+  const detailedStats = {};
   available.forEach(p => {
-    stats[p.id] = getPlayerStats(p.id, points);
+    detailedStats[p.id] = getDetailedPlayerStats(p.id, points);
   });
 
   const bxPlayers = available.filter(p => p.gender === 'bx');
   const gxPlayers = available.filter(p => p.gender === 'gx');
 
-  const sortKey = equalizeBy === 'time' ? 'minutesPlayed' : 'pointsPlayed';
+  // Primary: fewest points played (or least time played)
+  // Secondary: longest bench time (most rested) — higher benchTimeMs sorts first
+  // Tertiary: grade diversity handled after initial selection
   const sortFn = (a, b) => {
-    const diff = stats[a.id][sortKey] - stats[b.id][sortKey];
-    if (diff !== 0) return diff;
-    return stats[a.id].lastPointNumber - stats[b.id].lastPointNumber;
+    const sa = detailedStats[a.id];
+    const sb = detailedStats[b.id];
+
+    if (equalizeBy === 'time') {
+      const timeDiff = sa.totalPlayingTimeMs - sb.totalPlayingTimeMs;
+      if (timeDiff !== 0) return timeDiff;
+    } else {
+      const ptsDiff = sa.pointsPlayed - sb.pointsPlayed;
+      if (ptsDiff !== 0) return ptsDiff;
+    }
+
+    // Secondary: most rested (longest bench time) first
+    return sb.benchTimeMs - sa.benchTimeMs;
   };
 
   bxPlayers.sort(sortFn);
@@ -75,7 +121,7 @@ export function suggestLineup(players, checkedInIds, ratio, points, equalizeBy =
     }
   }
 
-  // Grade diversity: if all same grade and we have alternatives, swap the last one
+  // Tertiary: grade diversity — if all same grade and we have alternatives, swap the last one
   if (selected.length >= 3) {
     const grades = selected.map(p => p.grade);
     const uniqueGrades = new Set(grades);
@@ -104,6 +150,34 @@ export function previewLineups(players, checkedInIds, ratioPattern, ratioIndex, 
     const lineup = suggestLineup(players, checkedInIds, ratio, simPoints);
     previews.push({ ratio, lineup });
     simPoints = [...simPoints, { lineup, scoredBy: 'us', startedAt: null, endedAt: null, stats: [] }];
+    idx++;
+  }
+
+  return previews;
+}
+
+/**
+ * Generate algorithmic lineup previews for N future points.
+ * Returns array of { pointNumber, ratio: {bx, gx}, lineup: [playerId] }
+ */
+export function previewFutureLineups(players, checkedInIds, ratioPattern, ratioIndex, points, count = 5) {
+  const previews = [];
+  let simPoints = [...points];
+  let idx = ratioIndex;
+  const startingPointNumber = points.length + 1;
+
+  for (let i = 0; i < count; i++) {
+    const ratio = ratioPattern[idx % ratioPattern.length];
+    const lineup = suggestLineup(players, checkedInIds, ratio, simPoints);
+    previews.push({
+      pointNumber: startingPointNumber + i,
+      ratio,
+      lineup,
+    });
+    simPoints = [
+      ...simPoints,
+      { lineup, scoredBy: 'us', startedAt: null, endedAt: null, stats: [] },
+    ];
     idx++;
   }
 

@@ -57,6 +57,12 @@ export default function Home() {
         >
           Past Games
         </button>
+        <button
+          onClick={() => navigate('/skills')}
+          className="btn-primary w-full"
+        >
+          Skill Development
+        </button>
       </div>
     </div>
   );

@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "marmots-tracker",
+    "mtracker": "marmots-tracker"
+  },
+  "targets": {},
+  "etags": {}
+}

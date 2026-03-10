@@ -112,11 +112,14 @@ export function parseCSV(text) {
  * Parse roster data from CSV rows.
  * Expected columns: Name, Gender (bx/gx), Grade (3/4/5)
  * Skips header row if detected.
- * @returns {{ name: string, gender: string, grade: number }[]}
+ * @returns {{ players: Array, skipped: Array, rawRows: Array }}
+ *   players: valid parsed players
+ *   skipped: [{row, reason}] for rows that failed validation
+ *   rawRows: all non-header rows for debugging
  */
 export function parseRosterFromCSV(csvText) {
   const rows = parseCSV(csvText);
-  if (rows.length === 0) return [];
+  if (rows.length === 0) return { players: [], skipped: [], rawRows: [] };
 
   // Detect header row
   let startIdx = 0;
@@ -126,21 +129,38 @@ export function parseRosterFromCSV(csvText) {
   }
 
   const players = [];
+  const skipped = [];
+  const rawRows = rows.slice(startIdx);
+
   for (let i = startIdx; i < rows.length; i++) {
     const row = rows[i];
-    if (row.length < 3) continue;
+    const rawStr = row.join(', ');
+
+    if (row.length < 3) {
+      skipped.push({ row: rawStr, reason: `Only ${row.length} column(s) — need Name, Gender, Grade` });
+      continue;
+    }
 
     const name = row[0].trim();
     const gender = row[1].trim().toLowerCase();
     const gradeStr = row[2].trim();
 
-    if (!name) continue;
-    if (gender !== 'bx' && gender !== 'gx') continue;
-    if (!['3', '4', '5'].includes(gradeStr)) continue;
+    if (!name) {
+      skipped.push({ row: rawStr, reason: 'Name is empty' });
+      continue;
+    }
+    if (gender !== 'bx' && gender !== 'gx') {
+      skipped.push({ row: rawStr, reason: `Gender "${row[1].trim()}" not recognized — use "bx" or "gx"` });
+      continue;
+    }
+    if (!['3', '4', '5'].includes(gradeStr)) {
+      skipped.push({ row: rawStr, reason: `Grade "${gradeStr}" not recognized — use 3, 4, or 5` });
+      continue;
+    }
 
     players.push({ name, gender, grade: parseInt(gradeStr) });
   }
-  return players;
+  return { players, skipped, rawRows };
 }
 
 /**

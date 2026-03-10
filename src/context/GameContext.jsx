@@ -4,6 +4,32 @@ import { db } from '../firebase';
 
 const GameContext = createContext(null);
 
+// Action type constants — import these in consuming components
+export const ACTIONS = {
+  RESTORE: 'RESTORE',
+  START_GAME: 'START_GAME',
+  SET_LINEUP: 'SET_LINEUP',
+  START_POINT: 'START_POINT',
+  SCORE: 'SCORE',
+  UNDO_SCORE: 'UNDO_SCORE',
+  ADD_STAT: 'ADD_STAT',
+  REMOVE_STAT: 'REMOVE_STAT',
+  ADD_POINT_STAT: 'ADD_POINT_STAT',
+  REMOVE_POINT_STAT: 'REMOVE_POINT_STAT',
+  MID_POINT_SUB: 'MID_POINT_SUB',
+  SET_VIEWING_POINT: 'SET_VIEWING_POINT',
+  SWAP_PLAYER: 'SWAP_PLAYER',
+  OVERRIDE_RATIO: 'OVERRIDE_RATIO',
+  SET_EQUALIZE: 'SET_EQUALIZE',
+  START_HALFTIME: 'START_HALFTIME',
+  END_HALFTIME: 'END_HALFTIME',
+  DISMISS_SUB: 'DISMISS_SUB',
+  CHECK_IN_PLAYER: 'CHECK_IN_PLAYER',
+  CHECK_OUT_PLAYER: 'CHECK_OUT_PLAYER',
+  END_GAME: 'END_GAME',
+  CLEAR_GAME: 'CLEAR_GAME',
+};
+
 const initialState = {
   active: false,
   id: null,
@@ -27,6 +53,8 @@ const initialState = {
   points: [],
   currentStats: [],
   subDismissedAt: null,
+  viewingPointIndex: null,  // null = current point, number = viewing past point
+  midPointSubs: [],         // [{ outId, inId, timestamp }] for current point
 };
 
 function gameReducer(state, action) {
@@ -50,6 +78,8 @@ function gameReducer(state, action) {
       };
 
     case 'SET_LINEUP':
+      // Lineups lock once the point starts — only MID_POINT_SUB can change onField during play
+      if (state.phase === 'playing') return state;
       return { ...state, onField: action.lineup };
 
     case 'START_POINT':
@@ -60,8 +90,8 @@ function gameReducer(state, action) {
         number: state.currentPointNumber,
         lineup: [...state.onField],
         scoredBy: action.scoredBy,
-        scorer: action.scorer || null,
         stats: [...state.currentStats],
+        midPointSubs: [...state.midPointSubs],
         startedAt: state.pointStartedAt,
         endedAt: Date.now(),
       };
@@ -79,6 +109,7 @@ function gameReducer(state, action) {
         phase: gameOver ? 'finished' : 'pre-point',
         pointStartedAt: null,
         currentStats: [],
+        midPointSubs: [],
         ratioIndex: nextRatioIndex,
         ratioOverride: null,
         onField: [],
@@ -99,6 +130,7 @@ function gameReducer(state, action) {
         phase: 'pre-point',
         pointStartedAt: null,
         currentStats: lastPoint.stats || [],
+        midPointSubs: lastPoint.midPointSubs || [],
         ratioIndex: (state.ratioIndex - 1 + state.ratioPattern.length) % state.ratioPattern.length,
         ratioOverride: null,
         onField: lastPoint.lineup || [],
@@ -120,6 +152,63 @@ function gameReducer(state, action) {
       next.splice(idx, 1);
       return { ...state, currentStats: next };
     }
+
+    case 'ADD_POINT_STAT': {
+      const { pointIndex, playerId, statType } = action;
+      // null or equal to current point count means we're adding to the live/current point
+      if (pointIndex === null || pointIndex === state.points.length) {
+        return {
+          ...state,
+          currentStats: [...state.currentStats, { playerId, type: statType }],
+        };
+      }
+      // Adding to a historical point
+      const updatedPoints = state.points.map((pt, i) => {
+        if (i !== pointIndex) return pt;
+        return { ...pt, stats: [...(pt.stats || []), { playerId, type: statType }] };
+      });
+      return { ...state, points: updatedPoints };
+    }
+
+    case 'REMOVE_POINT_STAT': {
+      const { pointIndex, playerId, statType } = action;
+      // null or equal to current point count means we're removing from the live/current point
+      if (pointIndex === null || pointIndex === state.points.length) {
+        const idx = state.currentStats.findLastIndex(
+          s => s.playerId === playerId && s.type === statType
+        );
+        if (idx === -1) return state;
+        const next = [...state.currentStats];
+        next.splice(idx, 1);
+        return { ...state, currentStats: next };
+      }
+      // Removing from a historical point
+      const updatedPoints = state.points.map((pt, i) => {
+        if (i !== pointIndex) return pt;
+        const stats = pt.stats || [];
+        const idx = stats.findLastIndex(s => s.playerId === playerId && s.type === statType);
+        if (idx === -1) return pt;
+        const next = [...stats];
+        next.splice(idx, 1);
+        return { ...pt, stats: next };
+      });
+      return { ...state, points: updatedPoints };
+    }
+
+    case 'MID_POINT_SUB': {
+      const { outId, inId } = action;
+      return {
+        ...state,
+        onField: state.onField.map(id => (id === outId ? inId : id)),
+        midPointSubs: [
+          ...state.midPointSubs,
+          { outId, inId, timestamp: Date.now() },
+        ],
+      };
+    }
+
+    case 'SET_VIEWING_POINT':
+      return { ...state, viewingPointIndex: action.index };
 
     case 'SWAP_PLAYER':
       return {

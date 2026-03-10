@@ -25,6 +25,8 @@ export default function Roster() {
   const [sheetLoading, setSheetLoading] = useState(false);
   const [sheetError, setSheetError] = useState('');
   const [sheetPreview, setSheetPreview] = useState(null);
+  const [sheetSkipped, setSheetSkipped] = useState([]);
+  const [importError, setImportError] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
 
   // Results sync script
@@ -74,22 +76,32 @@ export default function Roster() {
   }
 
   async function handleImport() {
-    const lines = importText.trim().split('\n').filter(Boolean);
-    const newPlayers = [];
-    for (const line of lines) {
-      const parts = line.split(/[\t,]/).map(s => s.trim());
-      if (parts.length >= 3) {
-        const [pName, pGender, pGrade] = parts;
-        const g = pGender.toLowerCase();
-        if ((g === 'bx' || g === 'gx') && ['3', '4', '5'].includes(pGrade)) {
-          newPlayers.push({ name: pName, gender: g, grade: parseInt(pGrade) });
-        }
+    setImportError('');
+    const { players: newPlayers, skipped } = parseRosterFromCSV(importText.trim());
+
+    if (newPlayers.length === 0) {
+      if (skipped.length > 0) {
+        setImportError(
+          `No valid players found. ${skipped.length} row(s) had issues:\n` +
+          skipped.map(s => `• "${s.row}" → ${s.reason}`).join('\n')
+        );
+      } else {
+        setImportError('Nothing to import. Paste rows in format: Name, Gender (bx/gx), Grade (3/4/5)');
       }
+      return;
     }
-    if (newPlayers.length > 0) {
-      await bulkAddPlayers(newPlayers);
-      setImportText('');
-      setShowImport(false);
+
+    await bulkAddPlayers(newPlayers);
+    setImportText('');
+    setShowImport(false);
+    setImportError('');
+
+    if (skipped.length > 0) {
+      setImportError(
+        `Imported ${newPlayers.length} player(s). ${skipped.length} row(s) skipped:\n` +
+        skipped.map(s => `• "${s.row}" → ${s.reason}`).join('\n')
+      );
+      setShowImport(true);
     }
   }
 
@@ -373,6 +385,13 @@ export default function Roster() {
               <span className="text-[11px] text-navy-300 font-mono">G{player.grade}</span>
             </div>
             <div className="flex gap-1">
+              <button
+                onClick={() => navigate(`/skills/${player.id}`)}
+                className="text-xs text-gold/70 active:text-gold px-3 py-2 rounded-lg"
+                style={{ minHeight: '36px' }}
+              >
+                Skills
+              </button>
               <button
                 onClick={() => startEdit(player)}
                 className="text-xs text-navy-300 active:text-white px-3 py-2 rounded-lg"
