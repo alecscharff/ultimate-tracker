@@ -240,14 +240,33 @@ export default function ManualGameEntry() {
 
     if (playerRows.length === 0) { setCsvError('No player rows found. Expected rows with player names followed by point data.'); return; }
 
+    function matchPlayer(nameRaw) {
+      const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+      const csv = norm(nameRaw);
+      const csvParts = csv.split(/\s+/);
+      return players.find(p => {
+        const roster = norm(p.name);
+        const rosterParts = roster.split(/\s+/);
+        // Exact (normalized)
+        if (roster === csv) return true;
+        // Substring either way
+        if (roster.includes(csv) || csv.includes(roster)) return true;
+        // "First LastInitial" pattern: "Elliot S" → "Elliot Smith"
+        if (csvParts.length >= 2 && rosterParts.length >= 2) {
+          const csvFirst = csvParts[0];
+          const csvLast = csvParts[csvParts.length - 1];
+          const rosterFirst = rosterParts[0];
+          const rosterLast = rosterParts[rosterParts.length - 1];
+          if (csvFirst === rosterFirst && rosterLast.startsWith(csvLast)) return true;
+          if (csvFirst === rosterFirst && csvLast.startsWith(rosterLast)) return true;
+        }
+        return false;
+      });
+    }
+
     for (const row of playerRows) {
       const nameRaw = row[0].trim();
-      // Match to roster (case-insensitive, partial match)
-      const player = players.find(p =>
-        p.name.toLowerCase() === nameRaw.toLowerCase() ||
-        p.name.toLowerCase().includes(nameRaw.toLowerCase()) ||
-        nameRaw.toLowerCase().includes(p.name.toLowerCase())
-      );
+      const player = matchPlayer(nameRaw);
       if (!player) { unmatched.push(nameRaw); continue; }
 
       // Parse each point cell
