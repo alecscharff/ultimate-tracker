@@ -63,9 +63,12 @@ export default function PastGames() {
   return (
     <div className="min-h-dvh pb-6">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => navigate('/')} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
-        <h1 className="font-display text-2xl">PAST GAMES</h1>
+      <div className="sticky top-0 z-10 bg-navy-900 border-b border-navy-700 px-4 py-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/')} className="text-navy-300 active:text-white text-2xl leading-none px-1 py-2" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>&larr;</button>
+          <h1 className="font-display text-2xl">PAST GAMES</h1>
+        </div>
+        <button onClick={() => navigate('/games/add')} className="text-gold active:text-gold-light text-2xl leading-none px-1 py-2 font-bold" style={{ minHeight: '44px', minWidth: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
       </div>
 
       <div className="px-4 mt-4 space-y-3">

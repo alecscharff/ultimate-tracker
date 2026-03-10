@@ -20,9 +20,10 @@ export function getPlayerStats(playerId, points) {
     if (pt.stats) {
       pt.stats.forEach(s => {
         if (s.playerId === playerId) {
-          if (s.type === 'score') scores++;
+          // Support both conventions: 'score'/'goal' and 'd'/'D'
+          if (s.type === 'score' || s.type === 'goal') scores++;
           if (s.type === 'assist') assists++;
-          if (s.type === 'd') ds++;
+          if (s.type === 'd' || s.type === 'D') ds++;
           if (s.type === 'greatThrow') greatThrows++;
         }
       });

@@ -7,6 +7,7 @@ import Roster from './screens/Roster';
 import GameSetup from './screens/GameSetup';
 import GameView from './screens/GameView2';
 import PastGames from './screens/PastGames';
+import ManualGameEntry from './screens/ManualGameEntry';
 import SkillDevelopment from './screens/SkillDevelopment';
 import PlayerSkillDetail from './screens/PlayerSkillDetail';
 import SpectatorView from './screens/SpectatorView';
@@ -56,6 +57,7 @@ function AppRoutes() {
       <Route path="/game/setup" element={<GameSetup />} />
       <Route path="/game/play" element={<GameView />} />
       <Route path="/games" element={<PastGames />} />
+      <Route path="/games/add" element={<ManualGameEntry />} />
       <Route path="/skills" element={<SkillDevelopment />} />
       <Route path="/skills/:playerId" element={<PlayerSkillDetail />} />
       <Route path="/watch/:gameId" element={<SpectatorView />} />
