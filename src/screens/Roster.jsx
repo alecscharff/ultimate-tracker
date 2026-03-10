@@ -116,18 +116,30 @@ export default function Roster() {
     }
 
     setSheetLoading(true);
+    setSheetSkipped([]);
     try {
       // Save the URL for next time
       await setSetting('rosterSheetUrl', sheetUrl);
       if (sheetTab) await setSetting('rosterSheetTab', sheetTab);
 
       const csv = await fetchSheetCSV(sheetId, sheetTab);
-      const parsed = parseRosterFromCSV(csv);
+      const { players: parsed, skipped, rawRows } = parseRosterFromCSV(csv);
 
       if (parsed.length === 0) {
-        setSheetError('No valid players found. Expected columns: Name, Gender (bx/gx), Grade (3/4/5)');
+        if (rawRows.length === 0) {
+          setSheetError('Sheet appears empty — no data rows found.');
+        } else {
+          const preview = rawRows.slice(0, 3).map(r => r.join(', ')).join('\n');
+          setSheetError(
+            `No valid players found in ${rawRows.length} row(s). ` +
+            `Expected columns: Name, Gender (bx/gx), Grade (3/4/5).\n\n` +
+            `First row(s) from sheet:\n${preview}` +
+            (skipped.length > 0 ? `\n\nSkip reasons:\n` + skipped.slice(0, 5).map(s => `• ${s.reason}`).join('\n') : '')
+          );
+        }
       } else {
         setSheetPreview(parsed);
+        setSheetSkipped(skipped);
       }
     } catch (err) {
       setSheetError(err.message || 'Failed to fetch sheet. Share it as "Anyone with the link can view" or publish it to the web.');
@@ -246,7 +258,7 @@ export default function Roster() {
             {sheetUrl.trim() && (
               <button
                 onClick={() => {
-                  const link = `${window.location.origin}/ultimate-tracker/?sheet=${encodeURIComponent(sheetUrl.trim())}`;
+                  const link = `${window.location.origin}/?sheet=${encodeURIComponent(sheetUrl.trim())}`;
                   navigator.clipboard.writeText(link).then(() => {
                     setShareCopied(true);
                     setTimeout(() => setShareCopied(false), 2000);
