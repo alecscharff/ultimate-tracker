@@ -279,7 +279,7 @@ export default function Roster() {
             {sheetPreview && (
               <div className="space-y-2">
                 <div className="text-xs text-navy-300 font-semibold">
-                  Found {sheetPreview.length} player{sheetPreview.length !== 1 ? 's' : ''}:
+                  Found {sheetPreview.length} player{sheetPreview.length !== 1 ? 's' : ''}{sheetSkipped.length > 0 ? `, ${sheetSkipped.length} row(s) skipped` : ''}:
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1">
                   {sheetPreview.map((p, i) => {
@@ -303,11 +303,26 @@ export default function Roster() {
                     );
                   })}
                 </div>
+                {sheetSkipped.length > 0 && (
+                  <details className="text-xs text-navy-400 mt-1">
+                    <summary className="cursor-pointer text-gold/70 underline underline-offset-2">
+                      {sheetSkipped.length} row(s) skipped — tap to see why
+                    </summary>
+                    <ul className="mt-1 space-y-0.5 pl-2">
+                      {sheetSkipped.map((s, i) => (
+                        <li key={i} className="text-[11px]">
+                          <span className="text-navy-300">"{s.row}"</span>
+                          <span className="text-score-red/80"> → {s.reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
                 <div className="flex gap-2">
                   <button onClick={handleSheetImportConfirm} className="btn-gold flex-1">
                     Import Players
                   </button>
-                  <button onClick={() => setSheetPreview(null)} className="btn-primary flex-1">
+                  <button onClick={() => { setSheetPreview(null); setSheetSkipped([]); }} className="btn-primary flex-1">
                     Cancel
                   </button>
                 </div>
