@@ -167,6 +167,11 @@ export default function PointDetailView({
             const player = players.find(p => p.id === id);
             const stats = getDetailedPlayerStats(id, points, now);
             const pointStats = viewedStats.filter(s => s.playerId === id);
+            const statCounts = {
+              D: pointStats.filter(s => s.type === 'D').length,
+              assist: pointStats.filter(s => s.type === 'assist').length,
+              goal: pointStats.filter(s => s.type === 'goal').length,
+            };
             return (
               <LineupPlayerRow
                 key={id}
@@ -177,7 +182,7 @@ export default function PointDetailView({
                 isOnField={true}
                 onMove={canMove ? () => handleMoveToBench(id) : null}
                 disabled={!canMove}
-                stats={pointStats}
+                statCounts={statCounts}
               />
             );
           })}
@@ -210,7 +215,6 @@ export default function PointDetailView({
                   isOnField={false}
                   onMove={canMove ? () => handleMoveToField(id) : null}
                   disabled={!canMove}
-                  stats={[]}
                 />
               );
             })}

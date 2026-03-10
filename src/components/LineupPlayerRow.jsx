@@ -1,9 +1,9 @@
-function formatBenchTime(ms) {
-  if (!ms || ms <= 0) return '0:00';
-  const totalSeconds = Math.floor(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+function formatBenchTime(milliseconds) {
+  if (!milliseconds || milliseconds <= 0) return null;
+  // Round to nearest 5 minutes
+  const minutes = Math.round(milliseconds / 60000 / 5) * 5;
+  if (minutes === 0) return null; // Don't show if < 2.5 min
+  return `${minutes}m since last played`;
 }
 
 export default function LineupPlayerRow({
@@ -14,11 +14,14 @@ export default function LineupPlayerRow({
   isOnField,
   onMove,
   disabled,
-  stats,
+  statCounts = { D: 0, assist: 0, goal: 0 },
+  onStatTap,
 }) {
   if (!player) return null;
 
   const genderColor = player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500';
+  const benchLabel = !isOnField ? formatBenchTime(benchTimeMs) : null;
+  const totalMinutes = totalPlayingTimeMs ? Math.round(totalPlayingTimeMs / 60000) : null;
 
   return (
     <div className="bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px]">
@@ -26,30 +29,56 @@ export default function LineupPlayerRow({
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${genderColor}`} />
 
       {/* Name + grade */}
-      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+      <div className="flex items-center gap-1.5 min-w-0" style={{ flex: '1 1 0' }}>
         <span className="text-sm font-semibold text-white truncate">{player.name}</span>
         <span className="text-xs text-navy-300 flex-shrink-0">G{player.grade}</span>
       </div>
 
-      {/* Stats row */}
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <span className="text-xs text-navy-300">{pointsPlayed} pts</span>
-        {!isOnField && (
-          <span className="text-xs text-navy-300">{formatBenchTime(benchTimeMs)}</span>
-        )}
-        {stats && stats.length > 0 && (
-          <div className="flex gap-1">
-            {stats.map((s, i) => (
-              <span
-                key={i}
-                className="text-[10px] font-bold px-1 py-0.5 rounded bg-navy-700 text-navy-300"
-              >
-                {s.type}
-              </span>
-            ))}
+      {/* Right section: stat badges + time info */}
+      <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+        {/* Top row: points played + stat badges */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-navy-300">{pointsPlayed} pts</span>
+
+          {/* Stat badges — only render if count > 0 */}
+          {statCounts.D > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
+              D {statCounts.D}
+            </span>
+          )}
+          {statCounts.assist > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-500 text-navy-950">
+              A {statCounts.assist}
+            </span>
+          )}
+          {statCounts.goal > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-600 text-white">
+              G {statCounts.goal}
+            </span>
+          )}
+        </div>
+
+        {/* Bottom row: bench time + total played */}
+        {(benchLabel || totalMinutes) && (
+          <div className="flex items-center gap-1 text-xs text-navy-400">
+            {benchLabel && <span className="truncate">{benchLabel}</span>}
+            {benchLabel && totalMinutes && <span>|</span>}
+            {totalMinutes && <span>{totalMinutes}m total</span>}
           </div>
         )}
       </div>
+
+      {/* Stat edit button — only if onStatTap provided */}
+      {onStatTap && (
+        <button
+          onClick={onStatTap}
+          className="flex-shrink-0 text-navy-400 active:text-gold text-base leading-none flex items-center justify-center rounded-lg transition-colors"
+          style={{ minHeight: 36, minWidth: 36 }}
+          title="Edit stats"
+        >
+          +
+        </button>
+      )}
 
       {/* Move button */}
       {onMove && (
