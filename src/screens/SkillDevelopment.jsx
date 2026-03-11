@@ -48,8 +48,6 @@ export default function SkillDevelopment() {
   const players = usePlayers();
   const certMap = useCertifications();
 
-  // Filter tabs: 'all' | 1 | 2
-  const [filter, setFilter] = useState('all');
   // Sort: 'alpha' | 'tier'
   const [sort, setSort] = useState('alpha');
 
@@ -75,35 +73,6 @@ export default function SkillDevelopment() {
         </button>
         <h1 className="font-display text-2xl">SKILL DEVELOPMENT</h1>
         <span className="text-navy-300 text-sm ml-auto">{players.length} players</span>
-      </div>
-
-      {/* Filter tabs */}
-      <div className="flex gap-2 px-4 pt-4 pb-2">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-            filter === 'all'
-              ? 'bg-gold text-navy-950'
-              : 'bg-navy-800 text-navy-300 active:text-white'
-          }`}
-          style={{ minHeight: '36px' }}
-        >
-          All
-        </button>
-        {ACTIVE_LEVELS.map(lvl => (
-          <button
-            key={lvl.level}
-            onClick={() => setFilter(lvl.level)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              filter === lvl.level
-                ? 'bg-gold text-navy-950'
-                : 'bg-navy-800 text-navy-300 active:text-white'
-            }`}
-            style={{ minHeight: '36px' }}
-          >
-            L{lvl.level}
-          </button>
-        ))}
       </div>
 
       {/* Sort toggle */}
