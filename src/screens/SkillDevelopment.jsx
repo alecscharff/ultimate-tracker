@@ -18,6 +18,16 @@ function getCertStatus(certMap, playerId, level) {
   return hasProgress ? 'in-progress' : 'none';
 }
 
+function getHighestPassedLevel(certMap, playerId) {
+  const playerCerts = certMap.get(playerId);
+  if (!playerCerts) return 0;
+  let highest = 0;
+  for (const [level, cert] of playerCerts.entries()) {
+    if (cert.passed && level > highest) highest = level;
+  }
+  return highest;
+}
+
 function getLatestEvaluation(certMap, playerId) {
   const playerCerts = certMap.get(playerId);
   if (!playerCerts) return null;
@@ -40,15 +50,17 @@ export default function SkillDevelopment() {
 
   // Filter tabs: 'all' | 1 | 2
   const [filter, setFilter] = useState('all');
+  // Sort: 'alpha' | 'tier'
+  const [sort, setSort] = useState('alpha');
 
-  const filteredPlayers =
-    filter === 'all'
-      ? players
-      : players.filter(player => {
-          const status = getCertStatus(certMap, player.id, filter);
-          // Show all players regardless — filter just highlights the level column
-          return true;
-        });
+  const filteredPlayers = [...players].sort((a, b) => {
+    if (sort === 'tier') {
+      const tierA = getHighestPassedLevel(certMap, a.id);
+      const tierB = getHighestPassedLevel(certMap, b.id);
+      if (tierB !== tierA) return tierB - tierA;
+    }
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="min-h-dvh pb-6">
@@ -92,6 +104,31 @@ export default function SkillDevelopment() {
             L{lvl.level}
           </button>
         ))}
+      </div>
+
+      {/* Sort toggle */}
+      <div className="flex items-center gap-2 px-4 pb-3">
+        <span className="text-navy-400 text-xs uppercase tracking-wide">Sort:</span>
+        <button
+          onClick={() => setSort('alpha')}
+          className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+            sort === 'alpha'
+              ? 'bg-navy-600 text-white'
+              : 'bg-navy-800 text-navy-400 active:text-white'
+          }`}
+        >
+          A–Z
+        </button>
+        <button
+          onClick={() => setSort('tier')}
+          className={`px-3 py-1 rounded text-xs font-semibold transition-colors ${
+            sort === 'tier'
+              ? 'bg-navy-600 text-white'
+              : 'bg-navy-800 text-navy-400 active:text-white'
+          }`}
+        >
+          Skill Tier
+        </button>
       </div>
 
       {/* Player list */}
