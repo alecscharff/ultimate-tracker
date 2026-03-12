@@ -480,7 +480,7 @@ export default function PointDetailView({
                   onMove={(canMove || canMoveTimeoutSub) ? () => handleMoveToBench(id) : null}
                   disabled={!canMove && !canMoveTimeoutSub}
                   statCounts={statCounts}
-                  onStatTap={(!isFuturePoint && !isCurrentPoint && editingPastPoint) ? () => setStatModalPlayerId(id) : undefined}
+                  onStatTap={(isCurrentPoint || (isPastPoint && editingPastPoint)) ? () => setStatModalPlayerId(id) : undefined}
                   onNameTap={isCurrentPoint ? () => setInfoModalPlayerId(id) : undefined}
                   hideStatBadges={isCurrentPoint}
                   equalizeBy={equalizeBy}
@@ -522,10 +522,6 @@ export default function PointDetailView({
                   onMove={(canMove || canMoveTimeoutSub) ? () => handleMoveToField(id) : null}
                   disabled={!canMove && !canMoveTimeoutSub}
                   statCounts={{ D: 0, assist: 0, goal: 0 }}
-                  isCheckedIn={true}
-                  onCheckInToggle={() =>
-                    dispatch({ type: ACTIONS.CHECK_OUT_PLAYER, playerId: id })
-                  }
                   onInfoTap={() => setInfoModalPlayerId(id)}
                   equalizeBy={equalizeBy}
                   pointsSinceLastPlay={stats.pointsSinceLastPlay}
@@ -533,36 +529,39 @@ export default function PointDetailView({
                 />
               );
             })}
-            {checkedOutPlayerIds.map(id => {
-              const player = players.find(p => p.id === id);
-              const stats = getDetailedPlayerStats(id, points, now);
-              return (
-                <LineupPlayerRow
-                  key={id}
-                  player={player}
-                  pointsPlayed={stats.pointsPlayed}
-                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
-                  benchTimeMs={stats.benchTimeMs}
-                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
-                  isOnField={false}
-                  onMove={null}
-                  disabled={true}
-                  statCounts={{ D: 0, assist: 0, goal: 0 }}
-                  isCheckedIn={false}
-                  onCheckInToggle={() =>
-                    dispatch({ type: ACTIONS.CHECK_IN_PLAYER, playerId: id })
-                  }
-                  onInfoTap={() => setInfoModalPlayerId(id)}
-                  equalizeBy={equalizeBy}
-                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
-                  isLeastPlayed={leastPlayedIds.has(id)}
-                />
-              );
-            })}
-            {benchPlayerIds.length === 0 && checkedOutPlayerIds.length === 0 && (
+            {benchPlayerIds.length === 0 && (
               <div className="text-xs text-navy-400 py-2 text-center">No players on bench</div>
             )}
           </div>
+
+          {/* Late arrivals — not checked in at game start, tap to add to bench */}
+          {checkedOutPlayerIds.length > 0 && (
+            <div className="mt-3">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex-1 h-px bg-navy-800" />
+                <span className="text-[10px] uppercase text-navy-600 font-semibold tracking-wide">Not present</span>
+                <div className="flex-1 h-px bg-navy-800" />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {checkedOutPlayerIds.map(id => {
+                  const player = players.find(p => p.id === id);
+                  if (!player) return null;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => dispatch({ type: ACTIONS.CHECK_IN_PLAYER, playerId: id })}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-navy-800 border border-navy-700 active:border-navy-500 active:bg-navy-700 transition-colors"
+                      style={{ minHeight: 36 }}
+                    >
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500'}`} />
+                      <span className="text-xs text-navy-300 font-medium">{player.name}</span>
+                      <span className="text-[10px] text-navy-500">+</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </>
       )}
 

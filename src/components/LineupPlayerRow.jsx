@@ -32,7 +32,7 @@ export default function LineupPlayerRow({
   const genderColor = player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500';
   const benchLabel = lastPlayedGameMinute !== null && lastPlayedGameMinute !== undefined
     ? `last at ${lastPlayedGameMinute}m`
-    : formatBenchTime(benchTimeMs);
+    : null;
   const totalMinutes = totalPlayingTimeMs ? Math.round(totalPlayingTimeMs / 60000) : null;
   const rowOpacity = (onCheckInToggle !== undefined && !isCheckedIn) || isUnavailable ? 'opacity-40' : '';
   const warningBorder = hasWarning ? 'border-l-2 border-yellow-500' : isLeastPlayed ? 'border-l-2 border-teal-500/60' : '';
