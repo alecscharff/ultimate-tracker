@@ -63,7 +63,7 @@ export default function LineupPlayerRow({
     return (
       <div className="flex items-center gap-1 text-[11px] text-navy-400">
         <span>{pointsPlayed} pts</span>
-        {sinceLast !== null && sinceLast > 0 && (
+        {pointsPlayed > 0 && sinceLast !== null && sinceLast > 0 && (
           <>
             <span className="text-navy-600">·</span>
             <span>last {sinceLast}pts ago</span>
