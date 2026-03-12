@@ -43,9 +43,13 @@ export default function GameView2() {
     setSelectedPointIndex(null);
   }, [state.ourScore, state.theirScore]);
 
-  // Auto-suggest lineup when entering pre-point with empty onField
+  // Auto-suggest lineup when entering pre-point or timeout-sub with empty onField
   useEffect(() => {
-    if (state.phase === 'pre-point' && state.onField.length === 0 && players.length > 0) {
+    if (
+      (state.phase === 'pre-point' || state.phase === 'timeout-sub') &&
+      state.onField.length === 0 &&
+      players.length > 0
+    ) {
       const currentRatio = state.ratioOverride || state.ratioPattern[state.ratioIndex % state.ratioPattern.length];
       const suggested = suggestLineup(
         players, state.checkedInPlayerIds, currentRatio, state.points, state.equalizeBy
@@ -144,7 +148,11 @@ export default function GameView2() {
   }
 
   function handleTimeout() {
-    setShowSubModal(true);
+    dispatch({ type: ACTIONS.TIMEOUT_START });
+  }
+
+  function handleResumePoint() {
+    dispatch({ type: ACTIONS.RESUME_POINT });
   }
 
   function handleUndo() {
@@ -164,7 +172,14 @@ export default function GameView2() {
   }
 
   function handleAcceptSub() {
-    dispatch({ type: ACTIONS.SET_LINEUP, lineup: subSuggestion });
+    // MID_POINT_SUB one-by-one because SET_LINEUP is blocked during 'playing' phase
+    const currentLineup = state.onField;
+    subSuggestion.forEach((inId, i) => {
+      const outId = currentLineup[i];
+      if (outId && outId !== inId) {
+        dispatch({ type: ACTIONS.MID_POINT_SUB, outId, inId });
+      }
+    });
     setShowSubModal(false);
   }
 
@@ -292,6 +307,14 @@ export default function GameView2() {
         phase={state.phase}
       />
 
+      {/* Timeout banner — shown during timeout-sub phase */}
+      {state.phase === 'timeout-sub' && isViewingCurrentPoint && (
+        <div className="bg-gold/20 border-b border-gold/40 px-4 py-2 flex items-center gap-2">
+          <span className="text-sm font-bold text-gold">TIMEOUT</span>
+          <span className="text-xs text-navy-300">— adjust lineup for resume</span>
+        </div>
+      )}
+
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto px-4 pb-32">
         <PointDetailView
@@ -312,6 +335,7 @@ export default function GameView2() {
         onWeScored={handleWeScored}
         onTheyScored={handleTheyScored}
         onTimeout={handleTimeout}
+        onResumePoint={handleResumePoint}
         onEndGame={handleEndGame}
         onBackToCurrent={() => setSelectedPointIndex(null)}
       />

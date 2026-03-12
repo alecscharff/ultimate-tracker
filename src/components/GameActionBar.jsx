@@ -6,6 +6,7 @@ export default function GameActionBar({
   onWeScored,
   onTheyScored,
   onTimeout,
+  onResumePoint,
   onEndGame,
   onBackToCurrent,
 }) {
@@ -38,6 +39,26 @@ export default function GameActionBar({
             style={{ minHeight: 52 }}
           >
             Start Point
+          </button>
+        </div>
+      )}
+
+      {/* Timeout-sub: auto-pick + resume point */}
+      {isViewingCurrentPoint && phase === 'timeout-sub' && (
+        <div className="flex gap-3">
+          <button
+            onClick={onAutoPickLineup}
+            className="btn-primary flex-none px-5 text-sm"
+            style={{ minHeight: 52 }}
+          >
+            Auto-pick
+          </button>
+          <button
+            onClick={onResumePoint}
+            className="btn-gold flex-1 text-base font-bold"
+            style={{ minHeight: 52 }}
+          >
+            Resume Point
           </button>
         </div>
       )}

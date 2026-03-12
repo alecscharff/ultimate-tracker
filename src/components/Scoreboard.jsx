@@ -41,6 +41,11 @@ export default function Scoreboard({ ourScore, theirScore, opponent, gameStarted
             {formatTime(gameElapsed)}
           </span>
         </div>
+        {phase === 'timeout-sub' && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-gold font-semibold text-xs uppercase tracking-wide animate-pulse">Timeout</span>
+          </div>
+        )}
         {phase === 'playing' && (
           <div className="flex items-center gap-1.5">
             <span className="text-navy-300">Point</span>

@@ -31,6 +31,9 @@ export const ACTIONS = {
   MARK_UNAVAILABLE: 'MARK_UNAVAILABLE',
   MARK_AVAILABLE: 'MARK_AVAILABLE',
   EDIT_POINT_SCORED_BY: 'EDIT_POINT_SCORED_BY',
+  TIMEOUT_START: 'TIMEOUT_START',
+  RESUME_POINT: 'RESUME_POINT',
+  EDIT_POINT_LINEUP: 'EDIT_POINT_LINEUP',
 };
 
 const initialState = {
@@ -59,6 +62,7 @@ const initialState = {
   viewingPointIndex: null,  // null = current point, number = viewing past point
   midPointSubs: [],         // [{ outId, inId, timestamp }] for current point
   unavailablePlayerIds: [],
+  timeoutSubs: [],          // [{ lineup, startedAt, endedAt }] segments completed during timeout subs this point
 };
 
 function gameReducer(state, action) {
@@ -90,14 +94,21 @@ function gameReducer(state, action) {
       return { ...state, phase: 'playing', pointStartedAt: Date.now(), subDismissedAt: null };
 
     case 'SCORE': {
+      const timeoutSubs = state.timeoutSubs || [];
+      const finalSegment = timeoutSubs.length > 0
+        ? { lineup: [...state.onField], startedAt: state.pointStartedAt, endedAt: Date.now() }
+        : null;
+      const pointStartedAt = timeoutSubs.length > 0 ? timeoutSubs[0].startedAt : state.pointStartedAt;
+
       const point = {
         number: state.currentPointNumber,
         lineup: [...state.onField],
         scoredBy: action.scoredBy,
         stats: [...state.currentStats],
         midPointSubs: [...state.midPointSubs],
-        startedAt: state.pointStartedAt,
+        startedAt: pointStartedAt,
         endedAt: Date.now(),
+        timeoutSubs: finalSegment ? [...timeoutSubs, finalSegment] : [],
       };
       const newOur = state.ourScore + (action.scoredBy === 'us' ? 1 : 0);
       const newTheir = state.theirScore + (action.scoredBy === 'them' ? 1 : 0);
@@ -114,6 +125,7 @@ function gameReducer(state, action) {
         pointStartedAt: null,
         currentStats: [],
         midPointSubs: [],
+        timeoutSubs: [],
         ratioIndex: nextRatioIndex,
         ratioOverride: null,
         onField: [],
@@ -135,6 +147,7 @@ function gameReducer(state, action) {
         pointStartedAt: null,
         currentStats: lastPoint.stats || [],
         midPointSubs: lastPoint.midPointSubs || [],
+        timeoutSubs: [],
         ratioIndex: (state.ratioIndex - 1 + state.ratioPattern.length) % state.ratioPattern.length,
         ratioOverride: null,
         onField: lastPoint.lineup || [],
@@ -292,6 +305,27 @@ function gameReducer(state, action) {
         else theirScore++;
       });
       return { ...state, points: updatedPoints, ourScore, theirScore };
+    }
+
+    case 'TIMEOUT_START': {
+      const segment = { lineup: [...state.onField], startedAt: state.pointStartedAt, endedAt: Date.now() };
+      return {
+        ...state,
+        phase: 'timeout-sub',
+        timeoutSubs: [...(state.timeoutSubs || []), segment],
+        pointStartedAt: null,
+        subDismissedAt: null,
+      };
+    }
+
+    case 'RESUME_POINT':
+      return { ...state, phase: 'playing', pointStartedAt: Date.now(), subDismissedAt: null };
+
+    case 'EDIT_POINT_LINEUP': {
+      const updatedPoints = state.points.map((pt, i) =>
+        i === action.pointIndex ? { ...pt, lineup: action.lineup } : pt
+      );
+      return { ...state, points: updatedPoints };
     }
 
     default:

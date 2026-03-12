@@ -50,12 +50,26 @@ export function getDetailedPlayerStats(playerId, points, now = Date.now()) {
   let lastPlayedIndex = -1;
 
   points.forEach((pt, i) => {
-    if (pt.lineup && pt.lineup.includes(playerId)) {
-      pointsPlayed++;
-      lastPlayedIndex = i;
-      if (pt.startedAt && pt.endedAt) {
-        totalPlayingTimeMs += pt.endedAt - pt.startedAt;
-        lastPointEndedAt = pt.endedAt;
+    const segments = pt.timeoutSubs && pt.timeoutSubs.length > 0 ? pt.timeoutSubs : null;
+    if (segments) {
+      segments.forEach(seg => {
+        if (seg.lineup && seg.lineup.includes(playerId)) {
+          pointsPlayed++;
+          lastPlayedIndex = i;
+          if (seg.startedAt && seg.endedAt) {
+            totalPlayingTimeMs += seg.endedAt - seg.startedAt;
+            lastPointEndedAt = seg.endedAt;
+          }
+        }
+      });
+    } else {
+      if (pt.lineup && pt.lineup.includes(playerId)) {
+        pointsPlayed++;
+        lastPlayedIndex = i;
+        if (pt.startedAt && pt.endedAt) {
+          totalPlayingTimeMs += pt.endedAt - pt.startedAt;
+          lastPointEndedAt = pt.endedAt;
+        }
       }
     }
   });

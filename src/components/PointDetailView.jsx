@@ -60,11 +60,23 @@ export default function PointDetailView({
   // Past point edit state
   const [editingPastPoint, setEditingPastPoint] = useState(false);
   const [showEditConfirm, setShowEditConfirm] = useState(false);
+  // Past point lineup being edited (local copy of the lineup)
+  const [editedLineup, setEditedLineup] = useState(null);
 
   useEffect(() => {
     setEditingPastPoint(false);
     setShowEditConfirm(false);
+    setEditedLineup(null);
   }, [selectedPointIndex]);
+
+  // Sync editedLineup when entering edit mode
+  useEffect(() => {
+    if (editingPastPoint && isPastPoint) {
+      setEditedLineup([...(points[selectedPointIndex]?.lineup || [])]);
+    } else {
+      setEditedLineup(null);
+    }
+  }, [editingPastPoint]);
 
   // When viewing a future point, compute a projected lineup for the active override ratio
   const projectedLineup = useMemo(() => {
@@ -75,17 +87,18 @@ export default function PointDetailView({
   // Resolve the lineup to display
   const displayLineupIds = useMemo(() => {
     if (isPastPoint) {
+      // In edit mode use the local editable copy
+      if (editingPastPoint && editedLineup !== null) return editedLineup;
       return points[selectedPointIndex]?.lineup || [];
     }
     if (isFuturePoint) {
-      // Override ratio preview takes priority over the default futureLineups entry
       if (overrideRatioForFuture && projectedLineup) return projectedLineup;
       const preview = futureLineups.find(f => f.pointNumber - 1 === selectedPointIndex);
       return preview?.lineup || [];
     }
     // Current point
     return onField;
-  }, [isPastPoint, isFuturePoint, selectedPointIndex, points, futureLineups, onField, overrideRatioForFuture, projectedLineup]);
+  }, [isPastPoint, isFuturePoint, selectedPointIndex, points, futureLineups, onField, overrideRatioForFuture, projectedLineup, editingPastPoint, editedLineup]);
 
   // Compute game-relative minute a player last played (from game start = 0)
   function gameMinute(lastPointEndedAt) {
@@ -93,8 +106,9 @@ export default function PointDetailView({
     return Math.round((lastPointEndedAt - gameStartedAt) / 60000);
   }
 
-  // Bench players for current point (sorted by bench time desc)
   const now = Date.now();
+
+  // Bench players for current point (sorted by bench time desc)
   const benchPlayerIds = useMemo(() => {
     if (!isCurrentPoint) return [];
     const onFieldSet = new Set(displayLineupIds);
@@ -141,7 +155,6 @@ export default function PointDetailView({
       return { bx, gx };
     }
     if (isFuturePoint) {
-      // Coach-selected override for preview takes priority
       if (overrideRatioForFuture) return overrideRatioForFuture;
       const preview = futureLineups.find(f => f.pointNumber - 1 === selectedPointIndex);
       return preview?.ratio || currentRatio;
@@ -168,6 +181,18 @@ export default function PointDetailView({
     return warnings;
   }, [isCurrentPoint, phase, displayLineupIds, benchPlayerIds, points, now, equalizeBy]);
 
+  // Least played set — used to show a subtle indicator on player rows
+  const leastPlayedIds = useMemo(() => {
+    if (points.length < 3 || !isCurrentPoint) return new Set();
+    const allIds = [...checkedInPlayerIds].filter(id => !unavailablePlayerIds.includes(id));
+    const metrics = allIds.map(id => {
+      const s = getDetailedPlayerStats(id, points, now);
+      return equalizeBy === 'time' ? s.totalPlayingTimeMs : s.pointsPlayed;
+    });
+    const min = Math.min(...metrics);
+    return new Set(allIds.filter((id, i) => metrics[i] === min));
+  }, [points, checkedInPlayerIds, unavailablePlayerIds, equalizeBy, isCurrentPoint, now]);
+
   // Unavailable players list (only for current point view)
   const unavailablePlayerList = useMemo(() => {
     if (!isCurrentPoint) return [];
@@ -175,14 +200,13 @@ export default function PointDetailView({
   }, [isCurrentPoint, unavailablePlayerIds, players]);
 
   function handleMoveToField(playerId) {
-    if (phase !== 'pre-point') return;
-    // Add this bench player to the field, keeping within ratio limits
+    if (phase !== 'pre-point' && phase !== 'timeout-sub') return;
     const newOnField = [...onField, playerId];
     dispatch({ type: ACTIONS.SET_LINEUP, lineup: newOnField });
   }
 
   function handleMoveToBench(playerId) {
-    if (phase !== 'pre-point') return;
+    if (phase !== 'pre-point' && phase !== 'timeout-sub') return;
     const newOnField = onField.filter(id => id !== playerId);
     dispatch({ type: ACTIONS.SET_LINEUP, lineup: newOnField });
   }
@@ -192,7 +216,7 @@ export default function PointDetailView({
       setShowRatioModal(true);
       return;
     }
-    if (!isCurrentPoint || phase !== 'pre-point') return;
+    if (!isCurrentPoint || (phase !== 'pre-point' && phase !== 'timeout-sub')) return;
     const currentIdx = RATIO_OPTIONS.findIndex(
       r => r.bx === currentRatio.bx && r.gx === currentRatio.gx
     );
@@ -230,6 +254,17 @@ export default function PointDetailView({
     });
   }
 
+  // Toggle a player in/out of the edited past-point lineup
+  function handleTogglePastPointPlayer(playerId) {
+    if (!editingPastPoint || editedLineup === null) return;
+    const isInLineup = editedLineup.includes(playerId);
+    const newLineup = isInLineup
+      ? editedLineup.filter(id => id !== playerId)
+      : [...editedLineup, playerId];
+    setEditedLineup(newLineup);
+    dispatch({ type: ACTIONS.EDIT_POINT_LINEUP, pointIndex: selectedPointIndex, lineup: newLineup });
+  }
+
   const [statModalPlayerId, setStatModalPlayerId] = useState(null);
 
   function countStatsForPlayer(statsArray, playerId) {
@@ -260,25 +295,51 @@ export default function PointDetailView({
   }
 
   const canMove = isCurrentPoint && phase === 'pre-point';
+  const canMoveTimeoutSub = isCurrentPoint && phase === 'timeout-sub';
   const contentOpacity = isFuturePoint ? 'opacity-60' : '';
+
+  // Players eligible to appear in the past-point lineup editor
+  const pastPointEditablePlayers = useMemo(() => {
+    if (!editingPastPoint || !isPastPoint) return [];
+    return players.filter(p => checkedInPlayerIds.includes(p.id));
+  }, [editingPastPoint, isPastPoint, players, checkedInPlayerIds]);
 
   return (
     <div>
-      {/* Ratio badge */}
+      {/* Ratio badge + equalizer toggle */}
       <div className="flex items-center gap-2 mb-4">
         <button
           onClick={handleRatioTap}
-          disabled={!canMove && !isFuturePoint}
+          disabled={!canMove && !canMoveTimeoutSub && !isFuturePoint}
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-            canMove || isFuturePoint
+            canMove || canMoveTimeoutSub || isFuturePoint
               ? 'bg-gold/20 text-gold border border-gold/40 active:bg-gold/30 cursor-pointer'
               : 'bg-navy-800 text-navy-300 border border-navy-700 cursor-default'
           }`}
           style={{ minHeight: 36 }}
         >
           <span>{displayRatio.bx}bx / {displayRatio.gx}gx</span>
-          {(canMove || isFuturePoint) && <span className="text-xs opacity-60">tap to change</span>}
+          {(canMove || canMoveTimeoutSub || isFuturePoint) && <span className="text-xs opacity-60">tap to change</span>}
         </button>
+
+        {/* Equalizer toggle — only on current point */}
+        {isCurrentPoint && (
+          <button
+            onClick={() =>
+              dispatch({
+                type: ACTIONS.SET_EQUALIZE,
+                equalizeBy: equalizeBy === 'points' ? 'time' : 'points',
+              })
+            }
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-navy-700 text-navy-200 border border-navy-600 active:bg-navy-600 transition-colors"
+            style={{ minHeight: 36 }}
+            title="Toggle equalization mode"
+          >
+            <span>⚖</span>
+            <span>{equalizeBy === 'points' ? 'Points' : 'Time'}</span>
+          </button>
+        )}
+
         {isPastPoint && !editingPastPoint && (
           <span className="text-xs text-navy-400 italic">Past point (read-only)</span>
         )}
@@ -345,36 +406,95 @@ export default function PointDetailView({
           </div>
         )}
 
-        <div>
-          {displayLineupIds.map(id => {
-            const player = players.find(p => p.id === id);
-            const stats = getDetailedPlayerStats(id, points, now);
-            const statCounts =
-              isCurrentPoint
-                ? getAccumulatedStatCounts(id, gameState.points, gameState.currentStats)
-                : countStatsForPlayer(viewedStats, id);
-            return (
-              <LineupPlayerRow
-                key={id}
-                player={player}
-                pointsPlayed={stats.pointsPlayed}
-                totalPlayingTimeMs={stats.totalPlayingTimeMs}
-                benchTimeMs={stats.benchTimeMs}
-                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
-                isOnField={true}
-                onMove={canMove ? () => handleMoveToBench(id) : null}
-                disabled={!canMove}
-                statCounts={statCounts}
-                onStatTap={(!isFuturePoint && (isCurrentPoint || editingPastPoint)) ? () => setStatModalPlayerId(id) : undefined}
-                hasWarning={!!(lineupWarnings && lineupWarnings[id])}
-                onInfoTap={isCurrentPoint ? () => setInfoModalPlayerId(id) : undefined}
-              />
-            );
-          })}
-          {displayLineupIds.length === 0 && (
-            <div className="text-xs text-navy-400 py-4 text-center">No players on field yet</div>
-          )}
-        </div>
+        {/* Past point lineup editor — show all checked-in players with toggle buttons */}
+        {isPastPoint && editingPastPoint ? (
+          <div>
+            {pastPointEditablePlayers.map(player => {
+              const id = player.id;
+              const isInLineup = editedLineup !== null ? editedLineup.includes(id) : false;
+              const stats = getDetailedPlayerStats(id, points, now);
+              const statCounts = countStatsForPlayer(points[selectedPointIndex]?.stats || [], id);
+              return (
+                <div
+                  key={id}
+                  className={`bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px] ${isInLineup ? 'border-l-2 border-score-green' : 'opacity-50'}`}
+                >
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500'}`} />
+                  <div className="flex items-center gap-1.5 min-w-0" style={{ flex: '1 1 0' }}>
+                    <span className="text-sm font-semibold text-white truncate">{player.name}</span>
+                    <span className="text-xs text-navy-300 flex-shrink-0">G{player.grade}</span>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {statCounts.D > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-600 text-white">D {statCounts.D}</span>
+                    )}
+                    {statCounts.assist > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-500 text-navy-950">A {statCounts.assist}</span>
+                    )}
+                    {statCounts.goal > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-600 text-white">G {statCounts.goal}</span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setStatModalPlayerId(id)}
+                    className="flex-shrink-0 text-navy-400 active:text-gold text-base leading-none flex items-center justify-center rounded-lg transition-colors"
+                    style={{ minHeight: 36, minWidth: 36 }}
+                    title="Edit stats"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => handleTogglePastPointPlayer(id)}
+                    className={`flex-shrink-0 flex items-center justify-center rounded-lg text-base leading-none transition-colors ${
+                      isInLineup
+                        ? 'text-score-green active:text-white'
+                        : 'text-navy-400 active:text-score-green'
+                    }`}
+                    style={{ minHeight: 36, minWidth: 36 }}
+                    title={isInLineup ? 'Remove from lineup' : 'Add to lineup'}
+                  >
+                    {isInLineup ? '✓' : '+'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div>
+            {displayLineupIds.map(id => {
+              const player = players.find(p => p.id === id);
+              const stats = getDetailedPlayerStats(id, points, now);
+              const statCounts =
+                isCurrentPoint
+                  ? getAccumulatedStatCounts(id, gameState.points, gameState.currentStats)
+                  : countStatsForPlayer(viewedStats, id);
+              return (
+                <LineupPlayerRow
+                  key={id}
+                  player={player}
+                  pointsPlayed={stats.pointsPlayed}
+                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                  benchTimeMs={stats.benchTimeMs}
+                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                  isOnField={true}
+                  onMove={(canMove || canMoveTimeoutSub) ? () => handleMoveToBench(id) : null}
+                  disabled={!canMove && !canMoveTimeoutSub}
+                  statCounts={statCounts}
+                  onStatTap={(!isFuturePoint && !isCurrentPoint && editingPastPoint) ? () => setStatModalPlayerId(id) : undefined}
+                  onNameTap={isCurrentPoint ? () => setInfoModalPlayerId(id) : undefined}
+                  hideStatBadges={isCurrentPoint}
+                  equalizeBy={equalizeBy}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                  isLeastPlayed={leastPlayedIds.has(id)}
+                  hasWarning={!!(lineupWarnings && lineupWarnings[id])}
+                />
+              );
+            })}
+            {displayLineupIds.length === 0 && (
+              <div className="text-xs text-navy-400 py-4 text-center">No players on field yet</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bench section — only shown for current point */}
@@ -397,16 +517,19 @@ export default function PointDetailView({
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
                   benchTimeMs={stats.benchTimeMs}
-                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={false}
-                  onMove={canMove ? () => handleMoveToField(id) : null}
-                  disabled={!canMove}
+                  onMove={(canMove || canMoveTimeoutSub) ? () => handleMoveToField(id) : null}
+                  disabled={!canMove && !canMoveTimeoutSub}
                   statCounts={{ D: 0, assist: 0, goal: 0 }}
                   isCheckedIn={true}
                   onCheckInToggle={() =>
                     dispatch({ type: ACTIONS.CHECK_OUT_PLAYER, playerId: id })
                   }
                   onInfoTap={() => setInfoModalPlayerId(id)}
+                  equalizeBy={equalizeBy}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                  isLeastPlayed={leastPlayedIds.has(id)}
                 />
               );
             })}
@@ -420,7 +543,7 @@ export default function PointDetailView({
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
                   benchTimeMs={stats.benchTimeMs}
-                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={false}
                   onMove={null}
                   disabled={true}
@@ -430,6 +553,9 @@ export default function PointDetailView({
                     dispatch({ type: ACTIONS.CHECK_IN_PLAYER, playerId: id })
                   }
                   onInfoTap={() => setInfoModalPlayerId(id)}
+                  equalizeBy={equalizeBy}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                  isLeastPlayed={leastPlayedIds.has(id)}
                 />
               );
             })}
@@ -460,13 +586,15 @@ export default function PointDetailView({
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
                   benchTimeMs={stats.benchTimeMs}
-                lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={false}
                   onMove={null}
                   disabled={true}
                   statCounts={{ D: 0, assist: 0, goal: 0 }}
                   isUnavailable={true}
                   onInfoTap={() => setInfoModalPlayerId(id)}
+                  equalizeBy={equalizeBy}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
                 />
               );
             })}
@@ -509,7 +637,7 @@ export default function PointDetailView({
           >
             <p className="text-sm font-semibold text-gold">Edit past point?</p>
             <p className="text-xs text-navy-300 leading-relaxed">
-              This point is over. You can change who scored and edit player stats. Lineup changes are not supported.
+              This point is over. You can change who scored, edit player stats, and adjust the lineup.
             </p>
             <div className="flex gap-2">
               <button onClick={() => setShowEditConfirm(false)} className="btn-primary flex-1" style={{ minHeight: 44 }}>
