@@ -304,6 +304,34 @@ export default function PointDetailView({
     return players.filter(p => checkedInPlayerIds.includes(p.id));
   }, [editingPastPoint, isPastPoint, players, checkedInPlayerIds]);
 
+  // Edit mode bench: checked-in players NOT in editedLineup
+  const editModeBenchIds = useMemo(() => {
+    if (!editingPastPoint || editedLineup === null) return [];
+    const lineupSet = new Set(editedLineup);
+    return checkedInPlayerIds.filter(id => !lineupSet.has(id));
+  }, [editingPastPoint, editedLineup, checkedInPlayerIds]);
+
+  // View mode past-point bench: checked-in players NOT in the point's lineup
+  const pastPointBenchIds = useMemo(() => {
+    if (!isPastPoint || editingPastPoint) return [];
+    const lineupSet = new Set(points[selectedPointIndex]?.lineup || []);
+    return checkedInPlayerIds.filter(id => !lineupSet.has(id));
+  }, [isPastPoint, editingPastPoint, selectedPointIndex, points, checkedInPlayerIds]);
+
+  function handleEditMoveToField(playerId) {
+    if (editedLineup === null) return;
+    const newLineup = [...editedLineup, playerId];
+    setEditedLineup(newLineup);
+    dispatch({ type: ACTIONS.EDIT_POINT_LINEUP, pointIndex: selectedPointIndex, lineup: newLineup });
+  }
+
+  function handleEditMoveToBench(playerId) {
+    if (editedLineup === null) return;
+    const newLineup = editedLineup.filter(id => id !== playerId);
+    setEditedLineup(newLineup);
+    dispatch({ type: ACTIONS.EDIT_POINT_LINEUP, pointIndex: selectedPointIndex, lineup: newLineup });
+  }
+
   return (
     <div>
       {/* Ratio badge + equalizer toggle */}
@@ -341,7 +369,7 @@ export default function PointDetailView({
         )}
 
         {isPastPoint && !editingPastPoint && (
-          <span className="text-xs text-navy-400 italic">Past point (read-only)</span>
+          <span className="text-xs text-navy-400 italic">Past point</span>
         )}
         {isPastPoint && !editingPastPoint && (
           <button
@@ -349,11 +377,20 @@ export default function PointDetailView({
             className="text-xs font-semibold text-gold/70 active:text-gold px-2 py-1 rounded-lg border border-gold/30 active:border-gold/60 transition-colors"
             style={{ minHeight: 32 }}
           >
-            Edit
+            Edit Lineup
           </button>
         )}
         {isPastPoint && editingPastPoint && (
-          <span className="text-xs text-gold font-semibold italic">Editing past point</span>
+          <span className="text-xs text-gold font-semibold italic">Editing lineup</span>
+        )}
+        {isPastPoint && editingPastPoint && (
+          <button
+            onClick={() => setEditingPastPoint(false)}
+            className="text-xs font-semibold text-navy-300 active:text-white px-2 py-1 rounded-lg border border-navy-600 active:border-navy-400 transition-colors"
+            style={{ minHeight: 32 }}
+          >
+            Done
+          </button>
         )}
         {isFuturePoint && (
           <span className="text-xs text-navy-400 italic">Preview lineup</span>
@@ -406,58 +443,32 @@ export default function PointDetailView({
           </div>
         )}
 
-        {/* Past point lineup editor — show all checked-in players with toggle buttons */}
+        {/* Past point lineup editor — pre-point picker style with two sections */}
         {isPastPoint && editingPastPoint ? (
           <div>
-            {pastPointEditablePlayers.map(player => {
-              const id = player.id;
-              const isInLineup = editedLineup !== null ? editedLineup.includes(id) : false;
+            {(editedLineup || []).map(id => {
+              const player = players.find(p => p.id === id);
+              if (!player) return null;
               const stats = getDetailedPlayerStats(id, points, now);
-              const statCounts = countStatsForPlayer(points[selectedPointIndex]?.stats || [], id);
               return (
-                <div
+                <LineupPlayerRow
                   key={id}
-                  className={`bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px] ${isInLineup ? 'border-l-2 border-score-green' : 'opacity-50'}`}
-                >
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${player.gender === 'gx' ? 'bg-purple-500' : 'bg-blue-500'}`} />
-                  <div className="flex items-center gap-1.5 min-w-0" style={{ flex: '1 1 0' }}>
-                    <span className="text-sm font-semibold text-white truncate">{player.name}</span>
-                    <span className="text-xs text-navy-300 flex-shrink-0">G{player.grade}</span>
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {statCounts.D > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-600 text-white">D {statCounts.D}</span>
-                    )}
-                    {statCounts.assist > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-500 text-navy-950">A {statCounts.assist}</span>
-                    )}
-                    {statCounts.goal > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-600 text-white">G {statCounts.goal}</span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setStatModalPlayerId(id)}
-                    className="flex-shrink-0 text-navy-400 active:text-gold text-base leading-none flex items-center justify-center rounded-lg transition-colors"
-                    style={{ minHeight: 36, minWidth: 36 }}
-                    title="Edit stats"
-                  >
-                    +
-                  </button>
-                  <button
-                    onClick={() => handleTogglePastPointPlayer(id)}
-                    className={`flex-shrink-0 flex items-center justify-center rounded-lg text-base leading-none transition-colors ${
-                      isInLineup
-                        ? 'text-score-green active:text-white'
-                        : 'text-navy-400 active:text-score-green'
-                    }`}
-                    style={{ minHeight: 36, minWidth: 36 }}
-                    title={isInLineup ? 'Remove from lineup' : 'Add to lineup'}
-                  >
-                    {isInLineup ? '✓' : '+'}
-                  </button>
-                </div>
+                  player={player}
+                  pointsPlayed={stats.pointsPlayed}
+                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                  benchTimeMs={stats.benchTimeMs}
+                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                  isOnField={true}
+                  onMove={() => handleEditMoveToBench(id)}
+                  statCounts={{ D: 0, assist: 0, goal: 0 }}
+                  equalizeBy={equalizeBy}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                />
               );
             })}
+            {(editedLineup || []).length === 0 && (
+              <div className="text-xs text-navy-400 py-4 text-center">No players on field — tap + below to add</div>
+            )}
           </div>
         ) : (
           <div>
@@ -480,7 +491,7 @@ export default function PointDetailView({
                   onMove={(canMove || canMoveTimeoutSub) ? () => handleMoveToBench(id) : null}
                   disabled={!canMove && !canMoveTimeoutSub}
                   statCounts={statCounts}
-                  onStatTap={(isCurrentPoint || (isPastPoint && editingPastPoint)) ? () => setStatModalPlayerId(id) : undefined}
+                  onStatTap={((isCurrentPoint && phase === 'playing') || (isPastPoint && !editingPastPoint)) ? () => setStatModalPlayerId(id) : undefined}
                   onNameTap={isCurrentPoint ? () => setInfoModalPlayerId(id) : undefined}
                   hideStatBadges={isCurrentPoint}
                   equalizeBy={equalizeBy}
@@ -496,6 +507,42 @@ export default function PointDetailView({
           </div>
         )}
       </div>
+
+      {/* Edit mode bench section */}
+      {isPastPoint && editingPastPoint && (
+        <>
+          <div className="flex items-center gap-3 my-3">
+            <div className="flex-1 h-px bg-navy-700" />
+            <span className="text-xs uppercase text-navy-400 font-semibold">Bench</span>
+            <div className="flex-1 h-px bg-navy-700" />
+          </div>
+          <div>
+            {editModeBenchIds.map(id => {
+              const player = players.find(p => p.id === id);
+              if (!player) return null;
+              const stats = getDetailedPlayerStats(id, points, now);
+              return (
+                <LineupPlayerRow
+                  key={id}
+                  player={player}
+                  pointsPlayed={stats.pointsPlayed}
+                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                  benchTimeMs={stats.benchTimeMs}
+                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                  isOnField={false}
+                  onMove={() => handleEditMoveToField(id)}
+                  statCounts={{ D: 0, assist: 0, goal: 0 }}
+                  equalizeBy={equalizeBy}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                />
+              );
+            })}
+            {editModeBenchIds.length === 0 && (
+              <div className="text-xs text-navy-400 py-2 text-center">All players on field</div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* Bench section — only shown for current point */}
       {isCurrentPoint && (
@@ -562,6 +609,40 @@ export default function PointDetailView({
               </div>
             </div>
           )}
+        </>
+      )}
+
+      {/* Past point bench section — players who weren't in the lineup */}
+      {isPastPoint && !editingPastPoint && pastPointBenchIds.length > 0 && (
+        <>
+          <div className="flex items-center gap-3 my-3">
+            <div className="flex-1 h-px bg-navy-700" />
+            <span className="text-xs uppercase text-navy-400 font-semibold">Bench</span>
+            <div className="flex-1 h-px bg-navy-700" />
+          </div>
+          <div>
+            {pastPointBenchIds.map(id => {
+              const player = players.find(p => p.id === id);
+              if (!player) return null;
+              const stats = getDetailedPlayerStats(id, points, now);
+              const statCounts = countStatsForPlayer(viewedStats, id);
+              return (
+                <LineupPlayerRow
+                  key={id}
+                  player={player}
+                  pointsPlayed={stats.pointsPlayed}
+                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                  benchTimeMs={stats.benchTimeMs}
+                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                  isOnField={false}
+                  statCounts={statCounts}
+                  onStatTap={() => setStatModalPlayerId(id)}
+                  equalizeBy={equalizeBy}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                />
+              );
+            })}
+          </div>
         </>
       )}
 
@@ -634,9 +715,9 @@ export default function PointDetailView({
             className="bg-navy-800 rounded-xl p-5 max-w-sm mx-4 w-full space-y-4"
             onClick={e => e.stopPropagation()}
           >
-            <p className="text-sm font-semibold text-gold">Edit past point?</p>
+            <p className="text-sm font-semibold text-gold">Edit lineup for this point?</p>
             <p className="text-xs text-navy-300 leading-relaxed">
-              This point is over. You can change who scored, edit player stats, and adjust the lineup.
+              Adjust who was on the field for this point. To add or change stats, tap any player's + button from the normal view.
             </p>
             <div className="flex gap-2">
               <button onClick={() => setShowEditConfirm(false)} className="btn-primary flex-1" style={{ minHeight: 44 }}>

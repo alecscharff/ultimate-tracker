@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useSpectatorGame } from '../hooks/useSpectatorGame';
 import { usePlayers } from '../hooks/usePlayers';
 import { useSpectatorStats } from '../hooks/useSpectatorStats';
+import { useScheduledGames } from '../hooks/useScheduledGames';
 import { getAggregatedPlayerStats } from '../utils/pointStats';
 import Scoreboard from '../components/Scoreboard';
 import PointStrip from '../components/PointStrip';
@@ -20,6 +21,7 @@ export default function SpectatorView() {
   const game = useSpectatorGame();
   const players = usePlayers();
   const { spectatorStats, addSpectatorStat } = useSpectatorStats(gameId);
+  const { scheduledGames } = useScheduledGames();
 
   // UI state
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
@@ -139,24 +141,33 @@ export default function SpectatorView() {
     );
   }
 
-  // No active game
-  if (game === null) {
-    return (
-      <div className="min-h-dvh flex flex-col items-center justify-center bg-navy-950 text-white px-4 text-center">
-        <div className="font-display text-4xl text-gold mb-2">Wedgwood Marmots</div>
-        <p className="text-navy-300 text-sm">No active game right now.</p>
-        <p className="text-navy-400 text-xs mt-2">Check back when a game is in progress.</p>
-      </div>
-    );
-  }
+  // No active game or ID mismatch — check if it's a scheduled game
+  const scheduledMatch = (game === null || (game && String(game.id) !== gameId))
+    ? scheduledGames.find(g => String(g.spectatorId) === gameId)
+    : null;
 
-  // Game ID mismatch
-  if (String(game.id) !== gameId) {
+  if (game === null || (game && String(game.id) !== gameId)) {
+    if (scheduledMatch) {
+      return (
+        <div className="min-h-dvh flex flex-col items-center justify-center bg-navy-950 text-white px-4 text-center">
+          <div className="font-display text-4xl text-gold mb-2">Wedgwood Marmots</div>
+          <p className="text-xl font-semibold mt-2">vs {scheduledMatch.opponent}</p>
+          {scheduledMatch.startTime && (
+            <p className="text-gold font-semibold mt-1">{scheduledMatch.startTime}</p>
+          )}
+          {scheduledMatch.field && (
+            <p className="text-navy-400 text-sm mt-1">{scheduledMatch.field}</p>
+          )}
+          <p className="text-navy-300 text-sm mt-4">Game hasn't started yet.</p>
+          <p className="text-navy-400 text-xs mt-1">This page will update live once it begins.</p>
+        </div>
+      );
+    }
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center bg-navy-950 text-white px-4 text-center">
         <div className="font-display text-4xl text-gold mb-2">Wedgwood Marmots</div>
-        <p className="text-navy-300 text-sm">This game is not currently active.</p>
-        <p className="text-navy-400 text-xs mt-2">Ask your coach for an updated link.</p>
+        <p className="text-navy-300 text-sm">{game === null ? 'No active game right now.' : 'This game is not currently active.'}</p>
+        <p className="text-navy-400 text-xs mt-2">Check back when a game is in progress.</p>
       </div>
     );
   }

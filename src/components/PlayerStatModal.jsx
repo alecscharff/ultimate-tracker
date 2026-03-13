@@ -43,7 +43,7 @@ export default function PlayerStatModal({
       onClick={onClose}
     >
       <div
-        className="bg-navy-800 border-t border-navy-600 w-full max-w-lg rounded-t-2xl p-4 animate-slide-up"
+        className="bg-navy-800 border-t border-navy-600 w-full max-w-lg rounded-t-2xl p-4 animate-slide-up min-h-[45vh]"
         style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
       >

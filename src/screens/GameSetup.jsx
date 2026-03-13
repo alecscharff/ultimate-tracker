@@ -4,6 +4,7 @@ import { usePlayers } from '../hooks/usePlayers';
 import { getSetting, setSetting } from '../services/settingsService';
 import { useGame } from '../context/GameContext';
 import { extractSheetId, fetchSheetCSV, parseScheduleFromCSV } from '../utils/sheets';
+import { deleteScheduledGame } from '../services/gameService';
 
 const RATIO_PRESETS = [
   { label: '3bx / 2gx', patterns: [{ bx: 3, gx: 2 }] },
@@ -72,6 +73,7 @@ export default function GameSetup() {
 
     dispatch({
       type: 'START_GAME',
+      id: prefilledGame?.spectatorId ?? undefined,
       opponent: opponent.trim(),
       date,
       startTime,
@@ -79,6 +81,11 @@ export default function GameSetup() {
       playerIds: [...checkedIn],
       ratioPattern: RATIO_PRESETS[selectedRatio].patterns,
     });
+
+    // Clean up the scheduled game entry now that the game is live
+    if (prefilledGame?.scheduledGameId) {
+      deleteScheduledGame(prefilledGame.scheduledGameId).catch(() => {});
+    }
 
     navigate('/game/play');
   }

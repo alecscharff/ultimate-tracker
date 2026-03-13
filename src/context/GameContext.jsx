@@ -74,7 +74,7 @@ function gameReducer(state, action) {
       return {
         ...initialState,
         active: true,
-        id: Date.now(),
+        id: action.id ?? Date.now(),
         opponent: action.opponent,
         date: action.date,
         startTime: action.startTime,
