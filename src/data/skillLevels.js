@@ -122,20 +122,56 @@ export const SKILL_LEVELS = [
   {
     level: 3,
     title: 'Level 3: The Forehand',
-    subtitle: 'Forehand Mechanics',
-    placeholder: true,
-    partA: { label: 'Part A: Home Quiz', questions: [] },
-    partB: { label: 'Part B: Practice Evaluation', checkpoints: [] },
+    subtitle: 'Forehand Throw (GLADS)',
+    placeholder: false,
+    partA: {
+      label: 'Part A: Home Quiz',
+      questions: [
+        { key: 'q1', text: 'What does GLADS stand for?' },
+        { key: 'q2', text: 'Describe or show the standard forehand grip.' },
+        { key: 'q3', text: 'How is the forehand stance different from the backhand stance?' },
+        { key: 'q4', text: 'What does your wrist do when you throw a forehand?' },
+      ],
+    },
+    partB: {
+      label: 'Part B: Practice Evaluation',
+      checkpoints: [
+        { key: 'grip',        label: 'Grip',           description: 'Standard or peace sign grip. Two fingers inside rim, two outside (or peace sign). Thumb on top.' },
+        { key: 'lockIt',      label: 'Lock It',        description: 'Coach shakes disc lightly — disc does not move.' },
+        { key: 'aim',         label: 'Aim',            description: 'Chest faces target. Steps out with free foot before throwing.' },
+        { key: 'discAngle',   label: 'Disc Angle',     description: 'Disc stays parallel to ground throughout throw.' },
+        { key: 'snap',        label: 'Snap',           description: 'Visible wrist snap at release. Throw shows clear spin. Can demonstrate wrist-only throw.' },
+        { key: 'threeThrows', label: '3 Clean Throws', description: 'Completes 3 forehand throws with all 5 checkpoints demonstrated.' },
+      ],
+    },
     partnerRequired: false,
   },
   {
     level: 4,
-    title: 'Level 4: Advanced Releases',
-    subtitle: 'Advanced Techniques',
-    placeholder: true,
-    partA: { label: 'Part A: Home Quiz', questions: [] },
-    partB: { label: 'Part B: Practice Evaluation', checkpoints: [] },
-    partnerRequired: false,
+    title: 'Level 4: Pivot & Fake',
+    subtitle: 'Decision-Making Under Pressure',
+    placeholder: false,
+    partA: {
+      label: 'Part A: Home Quiz',
+      questions: [
+        { key: 'q1', text: 'Which foot is your pivot foot, and what happens if you lift it?' },
+        { key: 'q2', text: 'Why is one good fake usually enough?' },
+        { key: 'q3', text: 'When should you make eye contact with the player you actually want to throw to?' },
+        { key: 'q4', text: 'Describe a backhand-forehand fake.' },
+      ],
+    },
+    partB: {
+      label: 'Part B: Practice Evaluation',
+      checkpoints: [
+        { key: 'pivotFoot',            label: 'Name Pivot Foot',            description: 'Player correctly identifies their pivot foot (opposite throwing hand).' },
+        { key: 'pivotPastMark',        label: 'Pivot Past Mark',            description: 'Uses free foot to step past a stationary defender without lifting pivot foot.' },
+        { key: 'backhForehandFake',    label: 'Backhand → Forehand Fake',   description: 'Convincing backhand fake, then pivots and delivers forehand to open lane.' },
+        { key: 'forehandForehandFake', label: 'Forehand → Forehand Fake',   description: 'Fakes forehand high/outside, delivers forehand low/inside (or vice versa).' },
+        { key: 'threeComboReps',       label: '3 Fake + Throw Combos',      description: 'Completes 3 successful fake+throw combos with a partner acting as defender.' },
+      ],
+    },
+    partnerRequired: true,
+    partnerNote: 'A partner acts as the defender during Part B.',
   },
 ];
 
