@@ -5,7 +5,6 @@ import { useCertifications } from '../hooks/useCertifications';
 import { SKILL_LEVELS } from '../data/skillLevels';
 import {
   toggleCheckpoint,
-  setHomeQuizReviewed,
   markPassed,
   setPartner,
   updateNotes,
@@ -26,6 +25,8 @@ export default function PlayerSkillDetail() {
   const players = usePlayers();
   const certMap = useCertifications();
 
+  const [expandedLevels, setExpandedLevels] = useState(new Set());
+
   const player = players.find(p => p.id === playerId);
   const otherPlayers = players.filter(p => p.id !== playerId);
 
@@ -36,13 +37,16 @@ export default function PlayerSkillDetail() {
     return playerCerts.get(level) ?? null;
   }
 
-  async function handleToggleCheckpoint(level, checkpointKey) {
-    await toggleCheckpoint(playerId, level, checkpointKey);
+  function toggleExpanded(level) {
+    setExpandedLevels(prev => {
+      const next = new Set(prev);
+      next.has(level) ? next.delete(level) : next.add(level);
+      return next;
+    });
   }
 
-  async function handleQuizToggle(level, cert) {
-    const next = !(cert?.homeQuizReviewed ?? false);
-    await setHomeQuizReviewed(playerId, level, next);
+  async function handleToggleCheckpoint(level, checkpointKey) {
+    await toggleCheckpoint(playerId, level, checkpointKey);
   }
 
   async function handleMarkPassed(level, player, cert) {
@@ -100,65 +104,49 @@ export default function PlayerSkillDetail() {
           const checkedCount = levelConfig.partB.checkpoints.filter(
             cp => checkpoints[cp.key]
           ).length;
-          const quizReviewed = cert?.homeQuizReviewed ?? false;
           const allCheckpointsDone = checkedCount === totalCheckpoints;
-          const isReady = allCheckpointsDone && quizReviewed;
+          const isReady = allCheckpointsDone;
           const isPassed = cert?.passed ?? false;
+          const isExpanded = !isPassed || expandedLevels.has(levelConfig.level);
 
           return (
             <div
               key={levelConfig.level}
               className="bg-navy-800 rounded-xl border border-navy-700 overflow-hidden"
             >
-              {/* Card header */}
-              <div className="px-4 pt-4 pb-2">
-                <h2 className="text-white font-display text-xl">{levelConfig.title}</h2>
-                <p className="text-navy-300 text-sm">{levelConfig.subtitle}</p>
+              {/* Card header — always visible, tappable when passed */}
+              <div
+                className={`px-4 pt-4 pb-3 flex items-center justify-between gap-3 ${isPassed ? 'cursor-pointer active:bg-navy-700' : ''}`}
+                onClick={isPassed ? () => toggleExpanded(levelConfig.level) : undefined}
+              >
+                <div>
+                  <h2 className="text-white font-display text-xl">{levelConfig.title}</h2>
+                  <p className="text-navy-300 text-sm">{levelConfig.subtitle}</p>
+                </div>
+                {isPassed && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-score-green text-sm font-semibold">✓ Certified</span>
+                    <span className="text-navy-400 text-lg leading-none">
+                      {isExpanded ? '▲' : '▼'}
+                    </span>
+                  </div>
+                )}
               </div>
 
+              {isExpanded && (
               <div className="px-4 pb-4 space-y-4">
                 {/* Part A: Home Quiz */}
                 <div>
                   <h3 className="text-white font-semibold text-sm mb-2">
                     {levelConfig.partA.label}
                   </h3>
-
-                  {/* Quiz questions */}
-                  <ul className="space-y-1 mb-3">
+                  <ul className="space-y-1">
                     {levelConfig.partA.questions.map(q => (
                       <li key={q.key} className="text-navy-300 text-sm italic">
                         {q.text}
                       </li>
                     ))}
                   </ul>
-
-                  {/* Reviewed checkbox */}
-                  <label
-                    className="flex items-start gap-3 cursor-pointer"
-                    style={{ minHeight: '44px' }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={quizReviewed}
-                      onChange={() => handleQuizToggle(levelConfig.level, cert)}
-                      className="mt-0.5 shrink-0"
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        accentColor: '#f5a623',
-                        cursor: 'pointer',
-                      }}
-                    />
-                    <span className="text-sm text-white">
-                      Reviewed with parent, ready to test
-                    </span>
-                  </label>
-
-                  {quizReviewed && cert?.homeQuizTimestamp && (
-                    <p className="text-score-green text-xs mt-1 ml-8">
-                      Reviewed on {formatDate(cert.homeQuizTimestamp)}
-                    </p>
-                  )}
                 </div>
 
                 {/* Part B: Practice Evaluation */}
@@ -302,6 +290,7 @@ export default function PlayerSkillDetail() {
                   />
                 </div>
               </div>
+              )}
             </div>
           );
         })}

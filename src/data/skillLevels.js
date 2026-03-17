@@ -170,8 +170,7 @@ export const SKILL_LEVELS = [
         { key: 'threeComboReps',       label: '3 Fake + Throw Combos',      description: 'Completes 3 successful fake+throw combos with a partner acting as defender.' },
       ],
     },
-    partnerRequired: true,
-    partnerNote: 'A partner acts as the defender during Part B.',
+    partnerRequired: false,
   },
 ];
 
