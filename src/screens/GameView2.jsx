@@ -329,15 +329,20 @@ export default function GameView2() {
       <div className="flex-1 overflow-y-auto px-4 pb-32">
         {/* Direction/pull indicator — shown during pre-point */}
         {isViewingCurrentPoint && state.phase === 'pre-point' && currentPointFlip && (currentPointFlip.direction || currentPointFlip.puller) && (
-          <div className="flex items-center gap-3 py-2 mb-3 border-b border-navy-700/50">
+          <div className="flex items-center gap-3 py-2 mb-3 border-b border-navy-700/50 flex-wrap">
             {currentPointFlip.direction && (
               <span className="font-display text-2xl text-gold leading-none">
                 {currentPointFlip.direction === 'right' ? '→' : '←'}
               </span>
             )}
+            {currentPointFlip.direction && (
+              <span className="text-xs text-navy-200 font-semibold">
+                Marmots attack {currentPointFlip.direction}
+              </span>
+            )}
             {currentPointFlip.puller && (
-              <span className="text-xs text-navy-300">
-                {currentPointFlip.puller === 'us' ? 'Marmots pull' : `${state.opponent} pulls`}
+              <span className="text-xs text-navy-400">
+                · {currentPointFlip.puller === 'us' ? 'Marmots pull' : `${state.opponent} pulls`}
               </span>
             )}
           </div>

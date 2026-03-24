@@ -5,6 +5,7 @@ import { getSetting, setSetting } from '../services/settingsService';
 import { useGame } from '../context/GameContext';
 import { extractSheetId, fetchSheetCSV, parseScheduleFromCSV } from '../utils/sheets';
 import { deleteScheduledGame } from '../services/gameService';
+import PatternBuilderModal from '../components/PatternBuilderModal';
 
 const RATIO_PRESETS = [
   { label: 'ABBA', patterns: null, isAbba: true },
@@ -39,6 +40,8 @@ export default function GameSetup() {
   const [startingDirection, setStartingDirection] = useState(null);
   const [genderFlipWinner, setGenderFlipWinner] = useState(null);
   const [genderFirst, setGenderFirst] = useState(null);
+  const [showPatternBuilder, setShowPatternBuilder] = useState(false);
+  const [customPattern, setCustomPattern] = useState(null);
 
   // Schedule import state
   const [showSchedule, setShowSchedule] = useState(false);
@@ -78,15 +81,19 @@ export default function GameSetup() {
     if (!opponent.trim() || checkedIn.size < 5) return;
 
     let ratioPattern;
-    const preset = RATIO_PRESETS[selectedRatio];
-    if (preset.isAbba) {
-      if (genderFirst === 'gx') {
-        ratioPattern = [{ bx: 2, gx: 3 }, { bx: 3, gx: 2 }, { bx: 3, gx: 2 }, { bx: 2, gx: 3 }];
-      } else {
-        ratioPattern = [{ bx: 3, gx: 2 }, { bx: 2, gx: 3 }, { bx: 2, gx: 3 }, { bx: 3, gx: 2 }];
-      }
+    if (customPattern) {
+      ratioPattern = customPattern;
     } else {
-      ratioPattern = preset.patterns;
+      const preset = RATIO_PRESETS[selectedRatio];
+      if (preset.isAbba) {
+        if (genderFirst === 'gx') {
+          ratioPattern = [{ bx: 2, gx: 3 }, { bx: 3, gx: 2 }, { bx: 3, gx: 2 }, { bx: 2, gx: 3 }];
+        } else {
+          ratioPattern = [{ bx: 3, gx: 2 }, { bx: 2, gx: 3 }, { bx: 2, gx: 3 }, { bx: 3, gx: 2 }];
+        }
+      } else {
+        ratioPattern = preset.patterns;
+      }
     }
 
     dispatch({
@@ -281,22 +288,88 @@ export default function GameSetup() {
           <label className="text-xs uppercase text-navy-300 font-semibold mb-2 block">
             Default Gender Ratio
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {RATIO_PRESETS.map((preset, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedRatio(i)}
-                className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all ${
-                  selectedRatio === i
-                    ? 'bg-gold text-navy-950'
-                    : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
-                }`}
-                style={{ minHeight: '44px' }}
-              >
-                {preset.label}
-              </button>
-            ))}
+
+          {/* ABBA vs Custom toggle */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => { setSelectedRatio(0); setCustomPattern(null); }}
+              className={`flex-1 py-3 px-3 rounded-xl text-sm font-semibold transition-all ${
+                selectedRatio === 0
+                  ? 'bg-gold text-navy-950'
+                  : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+              }`}
+              style={{ minHeight: 44 }}
+            >
+              ABBA
+            </button>
+            <button
+              onClick={() => setShowPatternBuilder(true)}
+              className={`flex-1 py-3 px-3 rounded-xl text-sm font-semibold transition-all ${
+                customPattern
+                  ? 'bg-gold text-navy-950'
+                  : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+              }`}
+              style={{ minHeight: 44 }}
+            >
+              {customPattern
+                ? customPattern.map(r => `${r.bx}/${r.gx}`).join(' → ')
+                : 'Custom…'}
+            </button>
           </div>
+
+          {/* Other presets — collapsed under "More options" */}
+          <details className="mb-3">
+            <summary className="text-xs text-navy-400 cursor-pointer select-none active:text-navy-200 py-1">
+              More presets…
+            </summary>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {RATIO_PRESETS.slice(1).map((preset, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setSelectedRatio(i + 1); setCustomPattern(null); }}
+                  className={`py-3 px-3 rounded-xl text-sm font-semibold transition-all ${
+                    selectedRatio === i + 1 && !customPattern
+                      ? 'bg-gold text-navy-950'
+                      : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+                  }`}
+                  style={{ minHeight: '44px' }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </details>
+
+          {/* ABBA gender flip — shown inline when ABBA selected */}
+          {selectedRatio === 0 && !customPattern && (
+            <div className="bg-navy-800/50 rounded-xl p-3 space-y-2 border border-navy-700">
+              <div className="text-xs text-navy-400 font-semibold">Gender flip — who starts with more?</div>
+              <div className="flex gap-2">
+                {[
+                  { value: 'bx', label: '3bx/2gx first' },
+                  { value: 'gx', label: '3gx/2bx first' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setGenderFirst(genderFirst === opt.value ? null : opt.value)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      genderFirst === opt.value
+                        ? 'bg-gold text-navy-950'
+                        : 'bg-navy-800 text-navy-200 border border-navy-600 active:bg-navy-700'
+                    }`}
+                    style={{ minHeight: 40 }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10px] text-navy-500 leading-relaxed">
+                Pattern: {genderFirst === 'gx'
+                  ? '3gx/2bx → 2gx/3bx → 2gx/3bx → 3gx/2bx → repeats'
+                  : '3bx/2gx → 2bx/3gx → 2bx/3gx → 3bx/2gx → repeats'}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Pre-game flip */}
@@ -379,48 +452,6 @@ export default function GameSetup() {
               </div>
             </div>
 
-            {/* Gender flip — only shown when ABBA is selected */}
-            {RATIO_PRESETS[selectedRatio]?.isAbba && (
-              <div className="pt-1 border-t border-navy-700">
-                <div className="text-xs text-navy-400 mb-1.5 mt-2">Gender flip — who won?</div>
-                <div className="flex gap-2 mb-2">
-                  {['us', 'them'].map(side => (
-                    <button
-                      key={side}
-                      onClick={() => setGenderFlipWinner(genderFlipWinner === side ? null : side)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-                        genderFlipWinner === side
-                          ? 'bg-gold text-navy-950'
-                          : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
-                      }`}
-                      style={{ minHeight: 44 }}
-                    >
-                      {side === 'us' ? 'We won' : 'They won'}
-                    </button>
-                  ))}
-                </div>
-                <div className="text-xs text-navy-400 mb-1.5">More players on field first:</div>
-                <div className="flex gap-2">
-                  {[
-                    { value: 'bx', label: 'More bx (3bx/2gx)' },
-                    { value: 'gx', label: 'More gx (3gx/2bx)' },
-                  ].map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setGenderFirst(genderFirst === opt.value ? null : opt.value)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
-                        genderFirst === opt.value
-                          ? 'bg-gold text-navy-950'
-                          : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
-                      }`}
-                      style={{ minHeight: 44 }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
@@ -495,6 +526,14 @@ export default function GameSetup() {
           <p className="text-score-red text-xs text-center mt-2">Need at least 5 players checked in</p>
         )}
       </div>
+
+      {showPatternBuilder && (
+        <PatternBuilderModal
+          initialPattern={customPattern}
+          onSave={(pattern) => { setCustomPattern(pattern); setSelectedRatio(-1); }}
+          onClose={() => setShowPatternBuilder(false)}
+        />
+      )}
     </div>
   );
 }

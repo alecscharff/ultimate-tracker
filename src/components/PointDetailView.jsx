@@ -424,13 +424,16 @@ export default function PointDetailView({
         return (
           <div className="flex items-center gap-2 mb-3 text-xs text-navy-400">
             {info.direction && (
-              <span className="font-display text-lg text-gold leading-none">
-                {info.direction === 'right' ? '→' : '←'}
-              </span>
+              <>
+                <span className="font-display text-lg text-gold leading-none">
+                  {info.direction === 'right' ? '→' : '←'}
+                </span>
+                <span>Marmots attack {info.direction}</span>
+              </>
             )}
             {info.puller && (
               <span>
-                {info.puller === 'us' ? 'Marmots pull' : `${gameState.opponent} pulls`}
+                · {info.puller === 'us' ? 'Marmots pull' : `${gameState.opponent} pulls`}
               </span>
             )}
             {gameState.halftimeAfterPointCount != null &&
