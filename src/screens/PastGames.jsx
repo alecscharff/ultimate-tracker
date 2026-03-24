@@ -260,22 +260,29 @@ export default function PastGames() {
                     )}
                   </div>
                   {editingGameId === game.id && (
-                    <div className="text-[10px] text-navy-400 mb-2">Tap a point to toggle who scored</div>
+                    <div className="text-[10px] text-navy-400 mb-2">Tap to toggle scorer · hold to remove</div>
                   )}
                   <div className="flex flex-wrap gap-1.5">
                     {(editingGameId === game.id ? editedPoints : (game.points || [])).map((pt, i) => (
                       editingGameId === game.id ? (
-                        <button
-                          key={i}
-                          onClick={() => togglePointScorer(i)}
-                          className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold active:scale-95 transition-transform ${
-                            pt.scoredBy === 'us'
-                              ? 'bg-score-green/40 text-score-green ring-1 ring-score-green/50'
-                              : 'bg-score-red/40 text-score-red ring-1 ring-score-red/50'
-                          }`}
-                        >
-                          {i + 1}
-                        </button>
+                        <div key={i} className="relative">
+                          <button
+                            onClick={() => togglePointScorer(i)}
+                            className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold active:scale-95 transition-transform ${
+                              pt.scoredBy === 'us'
+                                ? 'bg-score-green/40 text-score-green ring-1 ring-score-green/50'
+                                : 'bg-score-red/40 text-score-red ring-1 ring-score-red/50'
+                            }`}
+                          >
+                            {i + 1}
+                          </button>
+                          <button
+                            onClick={() => setEditedPoints(prev => prev.filter((_, j) => j !== i))}
+                            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-navy-600 text-navy-200 text-[9px] flex items-center justify-center leading-none active:bg-red-700 active:text-white"
+                          >
+                            ×
+                          </button>
+                        </div>
                       ) : (
                         <div
                           key={i}
