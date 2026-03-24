@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { usePlayers } from '../hooks/usePlayers';
 import { useGames } from '../hooks/useGames';
 import { getPlayerStats } from '../utils/lineup';
-import { softDeleteGame } from '../services/gameService';
+import { softDeleteGame, updateGamePoints } from '../services/gameService';
 
 export default function PastGames() {
   const navigate = useNavigate();
@@ -12,6 +12,9 @@ export default function PastGames() {
   const [expandedId, setExpandedId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editingGameId, setEditingGameId] = useState(null);
+  const [editedPoints, setEditedPoints] = useState([]);
+  const [saving, setSaving] = useState(false);
 
   const getPlayer = id => players.find(p => p.id === id);
 
@@ -49,6 +52,28 @@ export default function PastGames() {
       setCopiedId(game.id);
       setTimeout(() => setCopiedId(null), 2000);
     });
+  }
+
+  function startEditingPoints(game) {
+    setEditingGameId(game.id);
+    setEditedPoints((game.points || []).map(p => ({ ...p })));
+  }
+
+  function togglePointScorer(index) {
+    setEditedPoints(prev => prev.map((p, i) =>
+      i === index ? { ...p, scoredBy: p.scoredBy === 'us' ? 'them' : 'us' } : p
+    ));
+  }
+
+  async function saveEditedPoints(game) {
+    setSaving(true);
+    try {
+      await updateGamePoints(game.id, editedPoints);
+      setEditingGameId(null);
+      setEditedPoints([]);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDeleteGame(game) {
@@ -204,19 +229,65 @@ export default function PastGames() {
                     })}
                   </div>
 
-                  <div className="text-xs uppercase text-navy-300 font-semibold mt-4 mb-2">Point Log</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(game.points || []).map((pt, i) => (
-                      <div
-                        key={i}
-                        className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold ${
-                          pt.scoredBy === 'us'
-                            ? 'bg-score-green/20 text-score-green'
-                            : 'bg-score-red/20 text-score-red'
-                        }`}
-                      >
-                        {i + 1}
+                  <div className="flex items-center justify-between mt-4 mb-2">
+                    <div className="text-xs uppercase text-navy-300 font-semibold">Point Log</div>
+                    {editingGameId === game.id ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setEditingGameId(null); setEditedPoints([]); }}
+                          className="text-xs text-navy-400 active:text-white px-2 py-1 rounded-lg border border-navy-600"
+                          style={{ minHeight: 28 }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => saveEditedPoints(game)}
+                          disabled={saving}
+                          className="text-xs font-semibold text-navy-950 bg-gold active:bg-gold/80 px-3 py-1 rounded-lg"
+                          style={{ minHeight: 28 }}
+                        >
+                          {saving ? 'Saving…' : 'Save'}
+                        </button>
                       </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditingPoints(game)}
+                        className="text-xs font-semibold text-gold/70 active:text-gold px-2 py-1 rounded-lg border border-gold/30 active:border-gold/60"
+                        style={{ minHeight: 28 }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                  {editingGameId === game.id && (
+                    <div className="text-[10px] text-navy-400 mb-2">Tap a point to toggle who scored</div>
+                  )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(editingGameId === game.id ? editedPoints : (game.points || [])).map((pt, i) => (
+                      editingGameId === game.id ? (
+                        <button
+                          key={i}
+                          onClick={() => togglePointScorer(i)}
+                          className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold active:scale-95 transition-transform ${
+                            pt.scoredBy === 'us'
+                              ? 'bg-score-green/40 text-score-green ring-1 ring-score-green/50'
+                              : 'bg-score-red/40 text-score-red ring-1 ring-score-red/50'
+                          }`}
+                        >
+                          {i + 1}
+                        </button>
+                      ) : (
+                        <div
+                          key={i}
+                          className={`w-8 h-8 rounded flex items-center justify-center text-xs font-bold ${
+                            pt.scoredBy === 'us'
+                              ? 'bg-score-green/20 text-score-green'
+                              : 'bg-score-red/20 text-score-red'
+                          }`}
+                        >
+                          {i + 1}
+                        </div>
+                      )
                     ))}
                   </div>
                 </div>
