@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
+import GameEndRulesModal from '../components/GameEndRulesModal';
 import { getSetting } from '../services/settingsService';
 import { extractSheetId, fetchSheetCSV, parseScheduleFromCSV } from '../utils/sheets';
 import { useScheduledGames } from '../hooks/useScheduledGames';
@@ -22,6 +23,7 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [createdGame, setCreatedGame] = useState(null); // last created — to show spectator link
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -408,7 +410,15 @@ export default function Home() {
         >
           Skill Development
         </button>
+        <button
+          onClick={() => setShowRules(true)}
+          className="btn-primary w-full py-3"
+        >
+          Game End Rules
+        </button>
       </div>
+
+      {showRules && <GameEndRulesModal onClose={() => setShowRules(false)} />}
     </div>
   );
 }

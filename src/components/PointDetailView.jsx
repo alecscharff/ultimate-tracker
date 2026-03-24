@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { ACTIONS } from '../context/GameContext';
 import { getDetailedPlayerStats, suggestLineup } from '../utils/lineup';
+import { getPointFlipInfo } from '../utils/gameUtils';
 import LineupPlayerRow from './LineupPlayerRow';
 import PlayerStatModal from './PlayerStatModal';
 import PlayerInfoModal from './PlayerInfoModal';
@@ -27,6 +28,9 @@ export default function PointDetailView({
   selectedPointIndex,
   futureLineups,
   dispatch,
+  sittingOutIds = new Set(),
+  onSitPlayer,
+  onUnsitPlayer,
 }) {
   const {
     points,
@@ -211,6 +215,20 @@ export default function PointDetailView({
     dispatch({ type: ACTIONS.SET_LINEUP, lineup: newOnField });
   }
 
+  function handleSitPlayer(playerId) {
+    if (phase !== 'pre-point') return;
+    const newOnField = onField.filter(id => id !== playerId);
+    dispatch({ type: ACTIONS.SET_LINEUP, lineup: newOnField });
+    onSitPlayer?.(playerId);
+  }
+
+  function handleUnsitPlayer(playerId) {
+    if (phase !== 'pre-point') return;
+    onUnsitPlayer?.(playerId);
+    const newOnField = [...onField, playerId];
+    dispatch({ type: ACTIONS.SET_LINEUP, lineup: newOnField });
+  }
+
   function handleRatioTap() {
     if (isFuturePoint) {
       setShowRatioModal(true);
@@ -223,7 +241,8 @@ export default function PointDetailView({
     const nextIdx = (currentIdx + 1) % RATIO_OPTIONS.length;
     const newRatio = RATIO_OPTIONS[nextIdx];
     dispatch({ type: ACTIONS.OVERRIDE_RATIO, ratio: newRatio });
-    const suggested = suggestLineup(players, checkedInPlayerIds, newRatio, points, equalizeBy);
+    const availableIds = checkedInPlayerIds.filter(id => !sittingOutIds.has(id));
+    const suggested = suggestLineup(players, availableIds, newRatio, points, equalizeBy);
     dispatch({ type: ACTIONS.SET_LINEUP, lineup: suggested });
   }
 
@@ -397,6 +416,32 @@ export default function PointDetailView({
         )}
       </div>
 
+      {/* Direction / pull info for this point */}
+      {(isCurrentPoint || isPastPoint) && (() => {
+        const idx = isPastPoint ? selectedPointIndex : gameState.points.length;
+        const info = getPointFlipInfo(idx, gameState);
+        if (!info.direction && !info.puller) return null;
+        return (
+          <div className="flex items-center gap-2 mb-3 text-xs text-navy-400">
+            {info.direction && (
+              <span className="font-display text-lg text-gold leading-none">
+                {info.direction === 'right' ? '→' : '←'}
+              </span>
+            )}
+            {info.puller && (
+              <span>
+                {info.puller === 'us' ? 'Marmots pull' : `${gameState.opponent} pulls`}
+              </span>
+            )}
+            {gameState.halftimeAfterPointCount != null &&
+             idx >= gameState.halftimeAfterPointCount &&
+             isPastPoint && (
+              <span className="text-navy-600">· 2nd half</span>
+            )}
+          </div>
+        );
+      })()}
+
       {/* On Field section */}
       <div className={contentOpacity}>
         <div className="flex items-center gap-2 mb-2">
@@ -488,7 +533,8 @@ export default function PointDetailView({
                   benchTimeMs={stats.benchTimeMs}
                   lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={true}
-                  onMove={(canMove || canMoveTimeoutSub) ? () => handleMoveToBench(id) : null}
+                  onMove={canMove ? () => handleSitPlayer(id) : canMoveTimeoutSub ? () => handleMoveToBench(id) : null}
+                  moveBtnLabel={canMove ? 'SIT' : null}
                   disabled={!canMove && !canMoveTimeoutSub}
                   statCounts={statCounts}
                   onStatTap={((isCurrentPoint && phase === 'playing') || (isPastPoint && !editingPastPoint)) ? () => setStatModalPlayerId(id) : undefined}
@@ -554,7 +600,7 @@ export default function PointDetailView({
           </div>
 
           <div>
-            {benchPlayerIds.map(id => {
+            {benchPlayerIds.filter(id => !sittingOutIds.has(id)).map(id => {
               const player = players.find(p => p.id === id);
               const stats = getDetailedPlayerStats(id, points, now);
               return (
@@ -576,10 +622,46 @@ export default function PointDetailView({
                 />
               );
             })}
-            {benchPlayerIds.length === 0 && (
+            {benchPlayerIds.filter(id => !sittingOutIds.has(id)).length === 0 &&
+             benchPlayerIds.filter(id => sittingOutIds.has(id)).length === 0 && (
               <div className="text-xs text-navy-400 py-2 text-center">No players on bench</div>
             )}
           </div>
+
+          {/* Sitting out this point */}
+          {benchPlayerIds.some(id => sittingOutIds.has(id)) && (
+            <>
+              <div className="flex items-center gap-3 my-3">
+                <div className="flex-1 h-px bg-amber-400/20" />
+                <span className="text-xs uppercase text-amber-400/70 font-semibold">Sitting out this point</span>
+                <div className="flex-1 h-px bg-amber-400/20" />
+              </div>
+              <div>
+                {benchPlayerIds.filter(id => sittingOutIds.has(id)).map(id => {
+                  const player = players.find(p => p.id === id);
+                  const stats = getDetailedPlayerStats(id, points, now);
+                  return (
+                    <LineupPlayerRow
+                      key={id}
+                      player={player}
+                      pointsPlayed={stats.pointsPlayed}
+                      totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                      benchTimeMs={stats.benchTimeMs}
+                      lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
+                      isOnField={false}
+                      isSittingOut={true}
+                      onMove={canMove ? () => handleUnsitPlayer(id) : null}
+                      disabled={!canMove}
+                      statCounts={{ D: 0, assist: 0, goal: 0 }}
+                      onInfoTap={() => setInfoModalPlayerId(id)}
+                      equalizeBy={equalizeBy}
+                      pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           {/* Late arrivals — not checked in at game start, tap to add to bench */}
           {checkedOutPlayerIds.length > 0 && (

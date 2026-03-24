@@ -26,6 +26,8 @@ export default function LineupPlayerRow({
   hasWarning,
   onInfoTap,
   isUnavailable,
+  moveBtnLabel,
+  isSittingOut,
 }) {
   if (!player) return null;
 
@@ -152,14 +154,28 @@ export default function LineupPlayerRow({
 
       {/* Move button */}
       {onMove && (
-        <button
-          onClick={onMove}
-          disabled={disabled}
-          className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-lg text-navy-300 active:bg-navy-700 disabled:opacity-30 transition-colors"
-          style={{ minWidth: 36, minHeight: 36 }}
-        >
-          {isOnField ? '↓' : '↑'}
-        </button>
+        moveBtnLabel ? (
+          <button
+            onClick={onMove}
+            disabled={disabled}
+            className="flex-shrink-0 flex items-center justify-center rounded-lg text-xs font-bold text-amber-400 border border-amber-400/50 active:bg-amber-400/20 disabled:opacity-30 transition-colors px-2"
+            style={{ minWidth: 40, minHeight: 36 }}
+          >
+            {moveBtnLabel}
+          </button>
+        ) : (
+          <button
+            onClick={onMove}
+            disabled={disabled}
+            className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-lg text-navy-300 active:bg-navy-700 disabled:opacity-30 transition-colors"
+            style={{ minWidth: 36, minHeight: 36 }}
+          >
+            {isSittingOut ? '↑' : (isOnField ? '↓' : '↑')}
+          </button>
+        )
+      )}
+      {isSittingOut && !onMove && (
+        <span className="text-[10px] text-amber-400/70 font-medium flex-shrink-0">sitting out</span>
       )}
     </div>
   );

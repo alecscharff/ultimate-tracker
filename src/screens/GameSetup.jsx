@@ -7,9 +7,10 @@ import { extractSheetId, fetchSheetCSV, parseScheduleFromCSV } from '../utils/sh
 import { deleteScheduledGame } from '../services/gameService';
 
 const RATIO_PRESETS = [
+  { label: 'ABBA', patterns: null, isAbba: true },
+  { label: 'Alt 3/2 & 2/3', patterns: [{ bx: 3, gx: 2 }, { bx: 2, gx: 3 }] },
   { label: '3bx / 2gx', patterns: [{ bx: 3, gx: 2 }] },
   { label: '2bx / 3gx', patterns: [{ bx: 2, gx: 3 }] },
-  { label: 'Alt 3/2 & 2/3', patterns: [{ bx: 3, gx: 2 }, { bx: 2, gx: 3 }] },
   { label: '4bx / 1gx', patterns: [{ bx: 4, gx: 1 }] },
   { label: '1bx / 4gx', patterns: [{ bx: 1, gx: 4 }] },
   { label: '5bx / 0gx', patterns: [{ bx: 5, gx: 0 }] },
@@ -31,8 +32,13 @@ export default function GameSetup() {
     prefilledGame?.startTime || new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
   );
   const [field, setField] = useState(prefilledGame?.field || '');
-  const [selectedRatio, setSelectedRatio] = useState(2); // Alt 3/2 & 2/3
+  const [selectedRatio, setSelectedRatio] = useState(0);
   const [checkedIn, setCheckedIn] = useState(new Set());
+  const [flipWinner, setFlipWinner] = useState(null);
+  const [flipChoice, setFlipChoice] = useState(null);
+  const [startingDirection, setStartingDirection] = useState(null);
+  const [genderFlipWinner, setGenderFlipWinner] = useState(null);
+  const [genderFirst, setGenderFirst] = useState(null);
 
   // Schedule import state
   const [showSchedule, setShowSchedule] = useState(false);
@@ -71,6 +77,18 @@ export default function GameSetup() {
   function startGame() {
     if (!opponent.trim() || checkedIn.size < 5) return;
 
+    let ratioPattern;
+    const preset = RATIO_PRESETS[selectedRatio];
+    if (preset.isAbba) {
+      if (genderFirst === 'gx') {
+        ratioPattern = [{ bx: 2, gx: 3 }, { bx: 3, gx: 2 }, { bx: 3, gx: 2 }, { bx: 2, gx: 3 }];
+      } else {
+        ratioPattern = [{ bx: 3, gx: 2 }, { bx: 2, gx: 3 }, { bx: 2, gx: 3 }, { bx: 3, gx: 2 }];
+      }
+    } else {
+      ratioPattern = preset.patterns;
+    }
+
     dispatch({
       type: 'START_GAME',
       id: prefilledGame?.spectatorId ?? undefined,
@@ -79,10 +97,13 @@ export default function GameSetup() {
       startTime,
       field: field.trim(),
       playerIds: [...checkedIn],
-      ratioPattern: RATIO_PRESETS[selectedRatio].patterns,
+      ratioPattern,
+      flipWinner,
+      flipChoice,
+      startingDirection,
+      genderFlipWinner,
     });
 
-    // Clean up the scheduled game entry now that the game is live
     if (prefilledGame?.scheduledGameId) {
       deleteScheduledGame(prefilledGame.scheduledGameId).catch(() => {});
     }
@@ -275,6 +296,131 @@ export default function GameSetup() {
                 {preset.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Pre-game flip */}
+        <div>
+          <label className="text-xs uppercase text-navy-300 font-semibold mb-3 block">
+            Pre-game Flip
+          </label>
+          <div className="space-y-3">
+            {/* Flip winner */}
+            <div>
+              <div className="text-xs text-navy-400 mb-1.5">Who won the flip?</div>
+              <div className="flex gap-2">
+                {['us', 'them'].map(side => (
+                  <button
+                    key={side}
+                    onClick={() => setFlipWinner(flipWinner === side ? null : side)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+                      flipWinner === side
+                        ? 'bg-gold text-navy-950'
+                        : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+                    }`}
+                    style={{ minHeight: 44 }}
+                  >
+                    {side === 'us' ? 'We won' : 'They won'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* What winner chose */}
+            {flipWinner && (
+              <div>
+                <div className="text-xs text-navy-400 mb-1.5">
+                  {flipWinner === 'us' ? 'We' : 'They'} chose:
+                </div>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'receive', label: 'Receive' },
+                    { value: 'pull', label: 'Pull' },
+                    { value: 'endzone', label: 'End zone' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setFlipChoice(flipChoice === opt.value ? null : opt.value)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+                        flipChoice === opt.value
+                          ? 'bg-gold text-navy-950'
+                          : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+                      }`}
+                      style={{ minHeight: 44 }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Starting direction */}
+            <div>
+              <div className="text-xs text-navy-400 mb-1.5">First point direction:</div>
+              <div className="flex gap-2">
+                {[
+                  { value: 'left', label: '← Left' },
+                  { value: 'right', label: 'Right →' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setStartingDirection(startingDirection === opt.value ? null : opt.value)}
+                    className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+                      startingDirection === opt.value
+                        ? 'bg-gold text-navy-950'
+                        : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+                    }`}
+                    style={{ minHeight: 44 }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Gender flip — only shown when ABBA is selected */}
+            {RATIO_PRESETS[selectedRatio]?.isAbba && (
+              <div className="pt-1 border-t border-navy-700">
+                <div className="text-xs text-navy-400 mb-1.5 mt-2">Gender flip — who won?</div>
+                <div className="flex gap-2 mb-2">
+                  {['us', 'them'].map(side => (
+                    <button
+                      key={side}
+                      onClick={() => setGenderFlipWinner(genderFlipWinner === side ? null : side)}
+                      className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
+                        genderFlipWinner === side
+                          ? 'bg-gold text-navy-950'
+                          : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+                      }`}
+                      style={{ minHeight: 44 }}
+                    >
+                      {side === 'us' ? 'We won' : 'They won'}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-navy-400 mb-1.5">More players on field first:</div>
+                <div className="flex gap-2">
+                  {[
+                    { value: 'bx', label: 'More bx (3bx/2gx)' },
+                    { value: 'gx', label: 'More gx (3gx/2bx)' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setGenderFirst(genderFirst === opt.value ? null : opt.value)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        genderFirst === opt.value
+                          ? 'bg-gold text-navy-950'
+                          : 'bg-navy-800 text-navy-200 border border-navy-700 active:bg-navy-700'
+                      }`}
+                      style={{ minHeight: 44 }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

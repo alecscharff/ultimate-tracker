@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame, ACTIONS } from '../context/GameContext';
+import { getPointFlipInfo } from '../utils/gameUtils';
 import { usePlayers } from '../hooks/usePlayers';
 import { previewFutureLineups, suggestLineup } from '../utils/lineup';
 import { syncGameToSheet } from '../utils/sheetsSync';
@@ -18,6 +19,7 @@ export default function GameView2() {
   const players = usePlayers();
 
   const [selectedPointIndex, setSelectedPointIndex] = useState(null); // null = current live point
+  const [sittingOutIds, setSittingOutIds] = useState(new Set());
   const [showSubModal, setShowSubModal] = useState(false);
   const [showGameSummary, setShowGameSummary] = useState(false);
   const [undoAvailable, setUndoAvailable] = useState(null);
@@ -38,9 +40,10 @@ export default function GameView2() {
     }
   }, [state.active, state.phase, navigate]);
 
-  // Auto-reset to current point after a score
+  // Auto-reset to current point after a score, and clear sitting-out players
   useEffect(() => {
     setSelectedPointIndex(null);
+    setSittingOutIds(new Set());
   }, [state.ourScore, state.theirScore]);
 
   // Auto-suggest lineup when entering pre-point or timeout-sub with empty onField
@@ -93,6 +96,12 @@ export default function GameView2() {
 
   // Sub suggestion lineup
   const currentRatio = state.ratioOverride || state.ratioPattern[state.ratioIndex % state.ratioPattern.length];
+
+  const currentPointFlip = useMemo(() => {
+    if (!state.startingDirection && !state.flipWinner) return null;
+    return getPointFlipInfo(state.points.length, state);
+  }, [state.startingDirection, state.flipWinner, state.flipChoice, state.halftimeAfterPointCount, state.points]);
+
   const subSuggestion = useMemo(() => {
     if (!showSubModal || players.length === 0) return [];
     return suggestLineup(players, state.checkedInPlayerIds, currentRatio, state.points, state.equalizeBy);
@@ -126,8 +135,9 @@ export default function GameView2() {
 
   // Action handlers
   function handleAutoPickLineup() {
+    const availableIds = state.checkedInPlayerIds.filter(id => !sittingOutIds.has(id));
     const suggested = suggestLineup(
-      players, state.checkedInPlayerIds, currentRatio, state.points, state.equalizeBy
+      players, availableIds, currentRatio, state.points, state.equalizeBy
     );
     dispatch({ type: ACTIONS.SET_LINEUP, lineup: suggested });
   }
@@ -317,12 +327,31 @@ export default function GameView2() {
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto px-4 pb-32">
+        {/* Direction/pull indicator — shown during pre-point */}
+        {isViewingCurrentPoint && state.phase === 'pre-point' && currentPointFlip && (currentPointFlip.direction || currentPointFlip.puller) && (
+          <div className="flex items-center gap-3 py-2 mb-3 border-b border-navy-700/50">
+            {currentPointFlip.direction && (
+              <span className="font-display text-2xl text-gold leading-none">
+                {currentPointFlip.direction === 'right' ? '→' : '←'}
+              </span>
+            )}
+            {currentPointFlip.puller && (
+              <span className="text-xs text-navy-300">
+                {currentPointFlip.puller === 'us' ? 'Marmots pull' : `${state.opponent} pulls`}
+              </span>
+            )}
+          </div>
+        )}
+
         <PointDetailView
           gameState={state}
           players={players}
           selectedPointIndex={selectedPointIndex}
           futureLineups={futureLineups}
           dispatch={dispatch}
+          sittingOutIds={sittingOutIds}
+          onSitPlayer={(id) => setSittingOutIds(prev => new Set([...prev, id]))}
+          onUnsitPlayer={(id) => setSittingOutIds(prev => { const next = new Set(prev); next.delete(id); return next; })}
         />
       </div>
 

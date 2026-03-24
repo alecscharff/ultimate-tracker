@@ -63,6 +63,11 @@ const initialState = {
   midPointSubs: [],         // [{ outId, inId, timestamp }] for current point
   unavailablePlayerIds: [],
   timeoutSubs: [],          // [{ lineup, startedAt, endedAt }] segments completed during timeout subs this point
+  flipWinner: null,
+  flipChoice: null,
+  startingDirection: null,
+  genderFlipWinner: null,
+  halftimeAfterPointCount: null,
 };
 
 function gameReducer(state, action) {
@@ -83,6 +88,10 @@ function gameReducer(state, action) {
         ratioPattern: action.ratioPattern,
         gameStartedAt: Date.now(),
         phase: 'pre-point',
+        flipWinner: action.flipWinner ?? null,
+        flipChoice: action.flipChoice ?? null,
+        startingDirection: action.startingDirection ?? null,
+        genderFlipWinner: action.genderFlipWinner ?? null,
       };
 
     case 'SET_LINEUP':
@@ -240,7 +249,12 @@ function gameReducer(state, action) {
       return { ...state, equalizeBy: action.equalizeBy };
 
     case 'START_HALFTIME':
-      return { ...state, phase: 'halftime', halftimeTaken: true };
+      return {
+        ...state,
+        phase: 'halftime',
+        halftimeTaken: true,
+        halftimeAfterPointCount: state.halftimeAfterPointCount ?? state.points.length,
+      };
 
     case 'END_HALFTIME':
       return { ...state, phase: 'pre-point' };

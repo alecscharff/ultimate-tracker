@@ -23,22 +23,31 @@ export default function GameActionBar({
         </button>
       )}
 
-      {/* Pre-point: auto-pick + start */}
+      {/* Pre-point: auto-pick + start + end game */}
       {isViewingCurrentPoint && phase === 'pre-point' && (
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-3">
+            <button
+              onClick={onAutoPickLineup}
+              className="btn-primary flex-none px-5 text-sm"
+              style={{ minHeight: 52 }}
+            >
+              Auto-pick
+            </button>
+            <button
+              onClick={onStartPoint}
+              className="btn-gold flex-1 text-base font-bold"
+              style={{ minHeight: 52 }}
+            >
+              Start Point
+            </button>
+          </div>
           <button
-            onClick={onAutoPickLineup}
-            className="btn-primary flex-none px-5 text-sm"
-            style={{ minHeight: 52 }}
+            onClick={onEndGame}
+            className="btn w-full text-sm text-navy-300 bg-transparent border border-navy-600"
+            style={{ minHeight: 40 }}
           >
-            Auto-pick
-          </button>
-          <button
-            onClick={onStartPoint}
-            className="btn-gold flex-1 text-base font-bold"
-            style={{ minHeight: 52 }}
-          >
-            Start Point
+            End Game
           </button>
         </div>
       )}
