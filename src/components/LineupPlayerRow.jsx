@@ -76,15 +76,17 @@ export default function LineupPlayerRow({
   }
 
   return (
-    <div className={`bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px] ${rowOpacity} ${warningBorder}`}>
+    <div
+      className={`bg-navy-800 rounded-lg px-3 py-2 mb-1 flex items-center gap-2 min-h-[52px] ${rowOpacity} ${warningBorder} ${onStatTap ? 'active:bg-navy-700/80 cursor-pointer select-none' : ''}`}
+      onClick={onStatTap || undefined}
+    >
       {/* Gender dot */}
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${genderColor}`} />
 
-      {/* Name + grade — tappable when onNameTap is provided */}
+      {/* Name + grade */}
       <div
-        className={`flex items-center gap-1.5 min-w-0 ${onNameTap ? 'active:opacity-70 cursor-pointer' : ''}`}
+        className="flex items-center gap-1.5 min-w-0"
         style={{ flex: '1 1 0' }}
-        onClick={onNameTap || undefined}
       >
         <span className="text-sm font-semibold text-white truncate">{player.name}</span>
         <span className="text-xs text-navy-300 flex-shrink-0">G{player.grade}</span>
@@ -116,24 +118,12 @@ export default function LineupPlayerRow({
         {renderStatInfo()}
       </div>
 
-      {/* Stat edit button — only if onStatTap provided and onNameTap is not (name tap replaces info access) */}
-      {onStatTap && (
+      {/* (i) info button — shown when onNameTap or onInfoTap provided */}
+      {(onNameTap || onInfoTap) && (
         <button
-          onClick={onStatTap}
-          className="flex-shrink-0 text-navy-400 active:text-gold text-base leading-none flex items-center justify-center rounded-lg transition-colors"
-          style={{ minHeight: 36, minWidth: 36 }}
-          title="Edit stats"
-        >
-          +
-        </button>
-      )}
-
-      {/* Info button — only if onInfoTap provided and onNameTap is not */}
-      {onInfoTap && !onNameTap && (
-        <button
-          onClick={onInfoTap}
-          className="flex-shrink-0 text-navy-400 active:text-gold text-xs font-bold leading-none flex items-center justify-center rounded-full border border-navy-600 active:border-gold transition-colors"
-          style={{ minHeight: 28, minWidth: 28 }}
+          onClick={e => { e.stopPropagation(); (onNameTap || onInfoTap)(); }}
+          className="flex-shrink-0 text-navy-500 active:text-gold text-[11px] font-bold italic leading-none flex items-center justify-center rounded-full border border-navy-700 active:border-gold transition-colors"
+          style={{ minHeight: 24, minWidth: 24 }}
           title="Player info"
         >
           i
@@ -143,7 +133,7 @@ export default function LineupPlayerRow({
       {/* Check-in toggle — only rendered for bench rows during current point */}
       {onCheckInToggle !== undefined && (
         <button
-          onClick={onCheckInToggle}
+          onClick={e => { e.stopPropagation(); onCheckInToggle(e); }}
           className="flex-shrink-0 flex items-center justify-center rounded-lg text-lg leading-none text-navy-300 active:bg-navy-700 transition-colors"
           style={{ minHeight: 36, minWidth: 36 }}
           title={isCheckedIn ? 'Check out' : 'Check in'}
@@ -156,7 +146,7 @@ export default function LineupPlayerRow({
       {onMove && (
         moveBtnLabel ? (
           <button
-            onClick={onMove}
+            onClick={e => { e.stopPropagation(); onMove(); }}
             disabled={disabled}
             className="flex-shrink-0 flex items-center justify-center rounded-lg text-xs font-bold text-amber-400 border border-amber-400/50 active:bg-amber-400/20 disabled:opacity-30 transition-colors px-2"
             style={{ minWidth: 40, minHeight: 36 }}
@@ -165,7 +155,7 @@ export default function LineupPlayerRow({
           </button>
         ) : (
           <button
-            onClick={onMove}
+            onClick={e => { e.stopPropagation(); onMove(); }}
             disabled={disabled}
             className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-lg text-navy-300 active:bg-navy-700 disabled:opacity-30 transition-colors"
             style={{ minWidth: 36, minHeight: 36 }}

@@ -552,7 +552,7 @@ export default function PointDetailView({
                   }
                   moveBtnLabel={
                     canMove ? 'SIT'
-                    : (isCurrentPoint && phase === 'playing') ? (swappingOutId === id ? '✕' : 'SWAP')
+                    : (isCurrentPoint && phase === 'playing') ? (swappingOutId === id ? '✕' : 'FIX')
                     : null
                   }
                   disabled={!canMove && !canMoveTimeoutSub && !(isCurrentPoint && phase === 'playing')}
