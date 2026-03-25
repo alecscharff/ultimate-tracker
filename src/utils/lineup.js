@@ -198,13 +198,15 @@ export function suggestLineup(players, checkedInIds, ratio, points, equalizeBy =
         : detailedStats[out.id].pointsPlayed;
       const selectedIds = new Set(bestSelected.map(p => p.id));
 
-      // Candidates: same gender, not already selected, within 1 point (or exact time) of out
+      // Candidates: same gender, not already selected, same primary metric as out (exact tie only).
+      // Never allow the variety pass to sit a player with fewer points than their replacement —
+      // that would cause end-of-game imbalances.
       const alts = altPool.filter(p => {
         if (selectedIds.has(p.id) || p.gender !== out.gender) return false;
         const m = equalizeBy === 'time'
           ? detailedStats[p.id].totalPlayingTimeMs
           : detailedStats[p.id].pointsPlayed;
-        return equalizeBy === 'time' ? m === outMetric : m <= outMetric + 1;
+        return m === outMetric;
       });
 
       for (const alt of alts) {
