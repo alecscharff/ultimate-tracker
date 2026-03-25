@@ -82,6 +82,33 @@ export function getDetailedPlayerStats(playerId, points, now = Date.now()) {
   return { pointsPlayed, totalPlayingTimeMs, lastPointEndedAt, benchTimeMs, pointsSinceLastPlay };
 }
 
+/** Build a map of how many times each pair of players has been in the same lineup. */
+function getPairCounts(points) {
+  const counts = {};
+  for (const pt of points) {
+    const lineup = pt.lineup || [];
+    for (let i = 0; i < lineup.length; i++) {
+      for (let j = i + 1; j < lineup.length; j++) {
+        const key = [lineup[i], lineup[j]].sort().join('|');
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    }
+  }
+  return counts;
+}
+
+/** Sum of co-occurrence counts for all pairs in a proposed lineup. */
+function lineupPairScore(ids, pairCounts) {
+  let total = 0;
+  for (let i = 0; i < ids.length; i++) {
+    for (let j = i + 1; j < ids.length; j++) {
+      const key = [ids[i], ids[j]].sort().join('|');
+      total += pairCounts[key] || 0;
+    }
+  }
+  return total;
+}
+
 export function suggestLineup(players, checkedInIds, ratio, points, equalizeBy = 'points') {
   const available = players.filter(p => checkedInIds.includes(p.id));
   if (available.length === 0) return [];
@@ -150,6 +177,47 @@ export function suggestLineup(players, checkedInIds, ratio, points, equalizeBy =
         selected[selected.length - 1] = bench[0];
       }
     }
+  }
+
+  // Quaternary: variety — try swapping any selected player with a near-equivalent bench player
+  // to reduce repeat pairings. Only applies after ≥5 points so there's meaningful history.
+  if (points.length >= 5) {
+    const pairCounts = getPairCounts(points);
+    // Build extended pool: top N+2 per gender (the alternatives we'd consider)
+    const bxPool = bxPlayers.slice(0, bxNeeded + 2);
+    const gxPool = gxPlayers.slice(0, gxNeeded + 2);
+    const altPool = [...bxPool, ...gxPool];
+
+    let bestScore = lineupPairScore(selected.map(p => p.id), pairCounts);
+    let bestSelected = [...selected];
+
+    for (let i = 0; i < selected.length; i++) {
+      const out = selected[i];
+      const outMetric = equalizeBy === 'time'
+        ? detailedStats[out.id].totalPlayingTimeMs
+        : detailedStats[out.id].pointsPlayed;
+      const selectedIds = new Set(bestSelected.map(p => p.id));
+
+      // Candidates: same gender, not already selected, within 1 point (or exact time) of out
+      const alts = altPool.filter(p => {
+        if (selectedIds.has(p.id) || p.gender !== out.gender) return false;
+        const m = equalizeBy === 'time'
+          ? detailedStats[p.id].totalPlayingTimeMs
+          : detailedStats[p.id].pointsPlayed;
+        return equalizeBy === 'time' ? m === outMetric : m <= outMetric + 1;
+      });
+
+      for (const alt of alts) {
+        const testSelected = [...bestSelected];
+        testSelected[i] = alt;
+        const testScore = lineupPairScore(testSelected.map(p => p.id), pairCounts);
+        if (testScore < bestScore) {
+          bestScore = testScore;
+          bestSelected = testSelected;
+        }
+      }
+    }
+    selected = bestSelected;
   }
 
   return selected.map(p => p.id);

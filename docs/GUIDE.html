@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wedgwood Marmots Ultimate Tracker — Coach Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: #f4f4f4;
+      padding: 24px 16px 64px;
+    }
+
+    .page {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.10);
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    .doc-header {
+      background: #0d1b2e;
+      color: #fff;
+      padding: 36px 32px 28px;
+    }
+    .doc-header .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #f5a623;
+      margin-bottom: 8px;
+    }
+    .doc-header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 10px;
+    }
+    .doc-header .subtitle {
+      font-size: 14px;
+      color: #8badd4;
+      margin-top: 6px;
+    }
+
+    /* ── Table of contents ───────────────────────────────── */
+    .toc {
+      background: #f8f9fb;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 20px 32px;
+    }
+    .toc h2 {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #6b7280;
+      margin-bottom: 10px;
+    }
+    .toc ol {
+      padding-left: 0;
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .toc ol li a {
+      text-decoration: none;
+      color: #0d1b2e;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toc ol li a:hover { color: #f5a623; }
+    .toc ol li a .toc-badge {
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 99px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    /* ── Section ─────────────────────────────────────────── */
+    .section {
+      padding: 32px 32px 28px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .section:last-of-type { border-bottom: none; }
+
+    .section-heading {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .section-accent {
+      width: 4px;
+      min-width: 4px;
+      border-radius: 4px;
+      background: #0d1b2e;
+      align-self: stretch;
+      min-height: 28px;
+    }
+    .section-heading-text {
+      flex: 1;
+    }
+    .section-heading-text h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #0d1b2e;
+      line-height: 1.3;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Priority badges */
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 99px;
+      letter-spacing: 0.04em;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    .badge-primary   { background: #0d1b2e; color: #f5a623; }
+    .badge-secondary { background: #1e3a5f; color: #8badd4; }
+    .badge-setup     { background: #f0f2f5; color: #6b7280; border: 1px solid #d1d5db; }
+
+    /* ── Body text & lists ───────────────────────────────── */
+    .section p { font-size: 15px; color: #374151; margin-bottom: 12px; }
+    .section p:last-child { margin-bottom: 0; }
+
+    .section ul, .section > ol.steps {
+      padding-left: 0;
+      list-style: none;
+      margin-bottom: 16px;
+    }
+    .section ul li {
+      font-size: 15px;
+      color: #374151;
+      padding: 4px 0 4px 18px;
+      position: relative;
+    }
+    .section ul li::before {
+      content: "–";
+      position: absolute;
+      left: 0;
+      color: #9ca3af;
+    }
+
+    /* Numbered steps list */
+    ol.steps { counter-reset: step; margin-bottom: 16px; }
+    ol.steps li {
+      counter-increment: step;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 15px;
+      color: #374151;
+      padding: 6px 0;
+    }
+    ol.steps li::before {
+      content: counter(step);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #0d1b2e;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Sub-heading inside section */
+    .section h3 {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #6b7280;
+      margin: 20px 0 10px;
+    }
+    .section h3:first-child { margin-top: 0; }
+
+    /* ── Screenshot placeholder ──────────────────────────── */
+    .screenshot {
+      width: 100%;
+      height: 280px;
+      background: #f3f4f6;
+      border: 2px dashed #d1d5db;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0 14px;
+      color: #9ca3af;
+      text-align: center;
+      padding: 16px;
+    }
+    .screenshot .screenshot-icon {
+      font-size: 32px;
+      line-height: 1;
+    }
+    .screenshot .screenshot-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b7280;
+      max-width: 260px;
+    }
+    .screenshot .screenshot-hint {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+
+    /* ── Callout list ────────────────────────────────────── */
+    .callouts {
+      background: #fffbf2;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+    .callouts p.callout-heading {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #b45309;
+      margin-bottom: 10px;
+    }
+    .callouts ol {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .callouts ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      color: #374151;
+    }
+    .callout-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #f5a623;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ── Inline code / key terms ─────────────────────────── */
+    .key {
+      display: inline-block;
+      background: #0d1b2e;
+      color: #f5a623;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 5px;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+    }
+    .key-green {
+      background: #166534;
+      color: #bbf7d0;
+    }
+    .key-red {
+      background: #991b1b;
+      color: #fecaca;
+    }
+
+    /* ── Info note ───────────────────────────────────────── */
+    .note {
+      background: #eff6ff;
+      border-left: 3px solid #3b82f6;
+      border-radius: 0 8px 8px 0;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: #1e40af;
+      margin: 12px 0;
+    }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    .doc-footer {
+      background: #f8f9fb;
+      border-top: 1px solid #e5e7eb;
+      padding: 24px 32px;
+      text-align: center;
+      font-size: 13px;
+      color: #6b7280;
+      line-height: 1.7;
+    }
+    .doc-footer strong { color: #0d1b2e; }
+
+    /* ── Print styles ────────────────────────────────────── */
+    @media print {
+      body { background: #fff; padding: 0; }
+      .page { box-shadow: none; border-radius: 0; }
+      .screenshot { height: 180px; }
+    }
+
+    @media (max-width: 480px) {
+      .section { padding: 24px 20px 20px; }
+      .toc { padding: 16px 20px; }
+      .doc-header { padding: 28px 20px 22px; }
+      .doc-footer { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Header ───────────────────────────────────────────── -->
+  <header class="doc-header">
+    <p class="eyebrow">Wedgwood Marmots</p>
+    <h1>Ultimate Tracker<br>Coach Guide</h1>
+    <p class="subtitle">Live-game coaching PWA &mdash; mobile reference for the sideline</p>
+  </header>
+
+  <!-- ── Table of Contents ────────────────────────────────── -->
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#quick-start"><span class="toc-badge badge badge-primary">🎯 Primary</span> 1. Quick Start</a></li>
+      <li><a href="#running-a-point"><span class="toc-badge badge badge-primary">🎯 Primary</span> 2. Running a Point</a></li>
+      <li><a href="#scoring-timeouts"><span class="toc-badge badge badge-primary">🎯 Primary</span> 3. Scoring &amp; Timeouts</a></li>
+      <li><a href="#halftime-end"><span class="toc-badge badge badge-primary">🎯 Primary</span> 4. Halftime &amp; Game End</a></li>
+      <li><a href="#point-strip"><span class="toc-badge badge badge-primary">🎯 Primary</span> 5. Point History Strip</a></li>
+      <li><a href="#player-stats"><span class="toc-badge badge badge-secondary">📊 Secondary</span> 6. Adding Player Stats</a></li>
+      <li><a href="#spectator"><span class="toc-badge badge badge-secondary">📊 Secondary</span> 7. Spectator / Parent View</a></li>
+      <li><a href="#game-setup"><span class="toc-badge badge badge-setup">⚙️ Setup</span> 8. Game Setup</a></li>
+      <li><a href="#past-games"><span class="toc-badge badge badge-setup">⚙️ Setup</span> 9. Past Games</a></li>
+      <li><a href="#rules-ref"><span class="toc-badge badge badge-setup">⚙️ Setup</span> 10. Game End Rules</a></li>
+    </ol>
+  </nav>
+
+  <!-- ── 1. Quick Start ────────────────────────────────────── -->
+  <section class="section" id="quick-start">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>1. Quick Start <span class="badge badge-primary">🎯 Primary</span></h2>
+      </div>
+    </div>
+
+    <p>Before the first point, walk through these six steps. The whole setup takes under two minutes if the roster is already loaded.</p>
+
+    <ol class="steps">
+      <li>Open the app. If a game is already active, tap the <strong>active game banner</strong> on the Home screen. Otherwise tap <strong>Game Setup</strong>.</li>
+      <li>Enter the <strong>opponent name</strong>, <strong>date</strong>, <strong>start time</strong>, and <strong>field</strong>. These can be pre-filled from a scheduled game on the Home screen.</li>
+      <li>Tap each player name in the <strong>check-in list</strong> to mark them present. Players not checked in are excluded from lineup suggestions.</li>
+      <li>Set the <strong>gender ratio</strong>. The default is <strong>ABBA</strong> — alternates 3bx/2gx &harr; 2bx/3gx every point. Tap "More presets" or "Custom pattern" for fixed ratios.</li>
+      <li>Record the <strong>pre-game flip</strong>: who won, whether Marmots will pull or receive first, and which end zone they attack to start.</li>
+      <li>Tap <span class="key">Start Game</span> at the bottom. The live game view opens immediately.</li>
+    </ol>
+
+    <div class="screenshot">
+      <span class="screenshot-icon">📱</span>
+      <span class="screenshot-label">Screenshot: Game Setup screen — opponent, date, check-in, ratio picker</span>
+      <span class="screenshot-hint">to be added</span>
+    </div>
+
+    <div class="callouts">
+      <p class="callout-heading">What to look for</p>
+      <ol>
+        <li><span class="callout-num">1</span> Opponent name and date fields at the top of the form.</li>
+        <li><span class="callout-num">2</span> Check-in list — tap a player row to toggle them present or absent; present players show a checkmark.</li>
+        <li><span class="callout-num">3</span> Ratio picker — ABBA is selected by default; tap "More presets" or "Custom pattern" for alternatives.</li>
+        <li><span class="callout-num">4</span> Gender flip section — record who won the flip and which end zone Marmots attack first.</li>
+        <li><span class="callout-num">5</span> The large <span class="key">Start Game</span> button at the very bottom of the screen.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 2. Running a Point ────────────────────────────────── -->
+  <section class="section" id="running-a-point">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>2. Running a Point <span class="badge badge-primary">🎯 Primary</span></h2>
+      </div>
+    </div>
+
+    <p>Between points, the app is in <strong>pre-point phase</strong>. This is where you review and finalize the lineup before releasing the disc.</p>
+
+    <h3>Pre-point workflow</h3>
+    <ul>
+      <li>The app <strong>auto-suggests</strong> 5 players — equalizing points played (or minutes, if time mode is on), respecting the current gender ratio, and mixing grades where possible.</li>
+      <li>To <strong>manually swap</strong> a player: tap the <strong>&darr;</strong> arrow on an on-field player to move them to the bench, then tap the <strong>&uarr;</strong> arrow on the bench player to bring them on — or vice versa.</li>
+      <li>Tap <span class="key">SIT</span> on an on-field player to exclude them from auto-pick this point without fully substituting them. They move to a "Sitting out" section and won't be suggested by Auto-pick.</li>
+      <li>Tap the <strong>ratio badge</strong> (e.g. "3bx / 2gx") to cycle the ratio for this point only (3/2 → 2/3 → 4/1 → 1/4 → …).</li>
+      <li>Tap <span class="key">Auto-pick</span> to re-run the suggestion algorithm with your current bench and any SIT exclusions applied.</li>
+      <li>The <strong>direction bar</strong> shows the current attack direction and whether Marmots pull or receive (e.g. "→ Marmots attack right · we pull").</li>
+      <li>When the lineup is set, tap <span class="key">Start Point</span>. The game clock starts and the phase shifts to <em>playing</em>.</li>
+    </ul>
+
+    <div class="screenshot">
+      <span class="screenshot-icon">📱</span>
+      <span class="screenshot-label">Screenshot: Pre-point view — lineup, bench, direction bar, action bar</span>
+      <span class="screenshot-hint">to be added</span>
+    </div>
+
+    <div class="callouts">
+      <p class="callout-heading">What to look for</p>
+      <ol>
+        <li><span class="callout-num">1</span> Direction indicator at the top — arrow showing attack direction and pull/receive status.</li>
+        <li><span class="callout-num">2</span> <strong>On Field</strong> section — 5 players each showing their playing time stats; <span class="key">SIT</span> button removes them from auto-pick.</li>
+        <li><span class="callout-num">3</span> Ratio badge (e.g. "3bx / 2gx") — tap to cycle the ratio for this point.</li>
+        <li><span class="callout-num">4</span> <strong>Bench</strong> section — sorted by most rest needed first; teal left border marks the least-played player.</li>
+        <li><span class="callout-num">5</span> <span class="key">Auto-pick</span> and <span class="key">Start Point</span> buttons in the action bar at the bottom.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 3. Scoring & Timeouts ─────────────────────────────── -->
+  <section class="section" id="scoring-timeouts">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>3. Scoring &amp; Timeouts <span class="badge badge-primary">🎯 Primary</span></h2>
+      </div>
+    </div>
+
+    <p>Once a point is started, the app enters <strong>playing phase</strong>. The point clock is running.</p>
+
+    <h3>Ending a point</h3>
+    <ul>
+      <li>Tap <span class="key key-green">We Scored</span> (green) when Marmots catch the disc in the end zone.</li>
+      <li>Tap <span class="key key-red">They Scored</span> (red) when the opponent scores.</li>
+      <li>After scoring, an <strong>8-second Undo banner</strong> appears — tap it to revert the last point if you tapped the wrong button.</li>
+    </ul>
+
+    <h3>Timeouts</h3>
+    <ul>
+      <li>Tap <span class="key">Timeout</span> to pause the game clock and enter <strong>timeout-sub phase</strong>.</li>
+      <li>During the timeout you can swap players exactly as you would in pre-point phase — adjust, add stats, review.</li>
+      <li>The scoreboard shows a pulsing <strong>TIMEOUT</strong> label and a banner reads "TIMEOUT — adjust lineup for resume."</li>
+      <li>Tap <span class="key">Resume Point</span> when play restarts. The clock begins fresh for the new segment.</li>
+    </ul>
+
+    <h3>Correcting a lineup mid-point</h3>
+    <ul>
+      <li>If you realize the wrong player is listed on field, use the <strong>FIX</strong> button — a two-tap swap that corrects data entry without affecting the point clock.</li>
+      <li>Tap <span class="key">FIX</span> on the player who should be coming off, then tap <span class="key">IN</span> on the correct replacement in the bench list.</li>
+    </ul>
+
+    <div class="screenshot">
+      <span class="screenshot-icon">📱</span>
+      <span class="screenshot-label">Screenshot: Playing phase — scoreboard, action bar with We Scored / They Scored / Timeout</span>
+      <span class="screenshot-hint">to be added</span>
+    </div>
+
+    <div class="callouts">
+      <p class="callout-heading">What to look for</p>
+      <ol>
+        <li><span class="callout-num">1</span> Scoreboard — Marmots score on the left, opponent on the right, game clock, and point clock.</li>
+        <li><span class="callout-num">2</span> <span class="key key-green">We Scored</span> (green) and <span class="key key-red">They Scored</span> (red) — large tap targets in the action bar.</li>
+        <li><span class="callout-num">3</span> <span class="key">Timeout</span> button — pauses the clock and opens lineup adjustment.</li>
+        <li><span class="callout-num">4</span> <span class="key">FIX</span> button on player rows — tap to start a two-tap correction of the lineup mid-point.</li>
+        <li><span class="callout-num">5</span> Undo banner — appears for 8 seconds after a score; tap to revert if you pressed the wrong button.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 4. Halftime & Game End ────────────────────────────── -->
+  <section class="section" id="halftime-end">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>4. Halftime &amp; Game End <span class="badge badge-primary">🎯 Primary</span></h2>
+      </div>
+    </div>
+
+    <h3>Halftime</h3>
+    <ul>
+      <li>The app alerts when either team reaches <strong>6 points</strong> or the game clock hits <strong>30 minutes</strong> — whichever comes first.</li>
+      <li>Tap <span class="key">Take Half</span> on the alert banner, or tap the <strong>Halftime</strong> button in the action bar during pre-point phase.</li>
+      <li>A halftime overlay appears showing the current score. Tap <span class="key">Resume Play</span> when the second half is ready to start.</li>
+      <li>The field direction indicator flips automatically for the second half — no manual adjustment needed.</li>
+    </ul>
+
+    <h3>Ending the game</h3>
+    <ul>
+      <li>The game clock turns <strong>orange at 25 min</strong> and <strong>red at 55 min</strong>. A red danger banner appears at 60 min (hard cap).</li>
+      <li>Tap <span class="key">End Game</span> in the action bar any time during pre-point phase.</li>
+      <li>A <strong>Game Summary modal</strong> opens — review the final score and top stats before committing.</li>
+      <li>Tap <span class="key">Confirm &amp; Save</span>. The game is written to history and a sync to Google Sheets fires automatically.</li>
+    </ul>
+
+    <div class="note">
+      The app auto-saves every state change — if the phone dies or the browser closes mid-game, reopen the app and it restores from where you left off.
+    </div>
+
+    <div class="screenshot">
+      <span class="screenshot-icon">📱</span>
+      <span class="screenshot-label">Screenshot: Halftime screen + Game Summary modal</span>
+      <span class="screenshot-hint">to be added</span>
+    </div>
+
+    <div class="callouts">
+      <p class="callout-heading">What to look for</p>
+      <ol>
+        <li><span class="callout-num">1</span> Halftime alert banner — tap <span class="key">Take Half</span> to pause the game and switch ends.</li>
+        <li><span class="callout-num">2</span> Halftime overlay — large score display with a <span class="key">Resume Play</span> button when second half begins.</li>
+        <li><span class="callout-num">3</span> Game Summary modal — shows final score and top stats for the game.</li>
+        <li><span class="callout-num">4</span> <span class="key">Confirm &amp; Save</span> — writes the game to history and triggers Google Sheets sync.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 5. Point History Strip ────────────────────────────── -->
+  <section class="section" id="point-strip">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>5. Point History Strip <span class="badge badge-primary">🎯 Primary</span></h2>
+      </div>
+    </div>
+
+    <p>The <strong>point strip</strong> sits just below the scoreboard and gives you a scrollable timeline of every point in the game.</p>
+
+    <ul>
+      <li><strong>Green chip</strong> = Marmots scored that point.</li>
+      <li><strong>Red chip</strong> = Opponent scored that point.</li>
+      <li><strong>Gray chips</strong> (future) = Projected upcoming lineups — not yet played.</li>
+      <li>Tap any past chip to review that point's lineup, stats earned, direction, and timing.</li>
+      <li>In the past-point detail view, you can also <strong>edit</strong> who scored (Us/Them) if an entry was wrong.</li>
+      <li>Tap <span class="key">&larr; Back to Current Point</span> in the action bar to return to the live game view.</li>
+    </ul>
+
+    <div class="screenshot">
+      <span class="screenshot-icon">📱</span>
+      <span class="screenshot-label">Screenshot: Point strip + past point detail view</span>
+      <span class="screenshot-hint">to be added</span>
+    </div>
+
+    <div class="callouts">
+      <p class="callout-heading">What to look for</p>
+      <ol>
+        <li><span class="callout-num">1</span> Point strip — scroll left/right; green = Marmots scored, red = opponent scored, gray = future.</li>
+        <li><span class="callout-num">2</span> Past point detail — shows the full lineup on field and all stats earned that point.</li>
+        <li><span class="callout-num">3</span> Direction info in the detail view — which way Marmots attacked and whether they pulled or received.</li>
+        <li><span class="callout-num">4</span> <span class="key">&larr; Back to Current Point</span> button in the action bar to return to the live game.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 6. Adding Player Stats ────────────────────────────── -->
+  <section class="section" id="player-stats">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>6. Adding Player Stats <span class="badge badge-secondary">📊 Secondary</span></h2>
+      </div>
+    </div>
+
+    <p>Stats are optional — you can track none, some, or all. They work during a live point and on any past point.</p>
+
+    <ul>
+      <li>Tap <strong>anywhere on a player row</strong> to open the stat modal for that player.</li>
+      <li>Available stats: <strong>Goal</strong>, <strong>Assist</strong>, <strong>D</strong> (block or defensive play), <strong>Great Throw</strong>.</li>
+      <li>Tap a stat button to add it — tap it again to remove it. There's no save step.</li>
+      <li>Stat chips appear on the player row: D = blue, A = yellow, G = green.</li>
+      <li>This works for the <strong>current point</strong> (during playing phase) and for <strong>any past point</strong> — tap that point's chip in the strip first, then tap the player row.</li>
+      <li>Tap the <strong>(i) button</strong> at the end of a bench player's row to open their player info card — grade, gender, and game totals.</li>
+    </ul>
+
+    <div class="screenshot">
+      <span class="screenshot-icon">📱</span>
+      <span class="screenshot-label">Screenshot: Stat modal open — player name + stat buttons</span>
+      <span class="screenshot-hint">to be added</span>
+    </div>
+
+    <div class="callouts">
+      <p class="callout-heading">What to look for</p>
+      <ol>
+        <li><span class="callout-num">1</span> Tap the whole player bar — anywhere on the row opens the stat picker for that player.</li>
+        <li><span class="callout-num">2</span> Goal, Assist, D, Great Throw buttons — tap to add, tap again to remove. No save needed.</li>
+        <li><span class="callout-num">3</span> (i) button at the end of each bench row — opens the player info card with grade, gender, and cumulative stats.</li>
+        <li><span class="callout-num">4</span> Stat chips on player rows — colored at a glance: D = blue, A = yellow, G = green.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 7. Spectator / Parent View ────────────────────────── -->
+  <section class="section" id="spectator">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>7. Spectator / Parent View <span class="badge badge-secondary">📊 Secondary</span></h2>
+      </div>
+    </div>
+
+    <p>Parents and spectators can follow the game live from their own phone — no login or account needed.</p>
+
+    <ul>
+      <li>During a game, tap <span class="key">Share Live Link</span> in the top-right of the game view. The link is copied to your clipboard.</li>
+      <li>Send the link via text message or group chat.</li>
+      <li>Parents open the link in any browser — they see the live score, the current on-field lineup, and recent points.</li>
+      <li>The spectator view updates in real time. No manual refresh required.</li>
+      <li>The link is read-only — spectators cannot make any changes to the game.</li>
+    </ul>
+
+    <div class="screenshot">
+      <span class="screenshot-icon">📱</span>
+      <span class="screenshot-label">Screenshot: Spectator view — live score, lineup, point strip</span>
+      <span class="screenshot-hint">to be added</span>
+    </div>
+
+    <div class="callouts">
+      <p class="callout-heading">What to look for</p>
+      <ol>
+        <li><span class="callout-num">1</span> Live score and opponent name at the top of the spectator screen.</li>
+        <li><span class="callout-num">2</span> Current on-field lineup showing player names.</li>
+        <li><span class="callout-num">3</span> Point-by-point history strip showing the score progression.</li>
+        <li><span class="callout-num">4</span> Auto-refreshes in real time — no login or reload required.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── 8. Game Setup ─────────────────────────────────────── -->
+  <section class="section" id="game-setup">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>8. Game Setup <span class="badge badge-setup">⚙️ Setup</span></h2>
+      </div>
+    </div>
+
+    <p>Out-of-game preparation before game day:</p>
+
+    <ul>
+      <li><strong>Roster</strong> is managed in the <em>Roster</em> screen — add, edit, or delete players individually, or use <strong>Import from Google Sheets</strong> to bulk-load from a shared spreadsheet (Name, Gender, Grade columns required).</li>
+      <li><strong>Scheduled games</strong> can be added from the Home screen. Tap a scheduled game to pre-fill the setup form with opponent, date, time, and field.</li>
+      <li>Check in players, set ratio, and record the flip as part of the normal game-start flow described in Section 1.</li>
+      <li>The app <strong>auto-saves every state change</strong> to Firestore. If the browser closes or the phone is locked mid-game, reopening the app fully restores the game.</li>
+    </ul>
+  </section>
+
+  <!-- ── 9. Past Games ─────────────────────────────────────── -->
+  <section class="section" id="past-games">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>9. Past Games <span class="badge badge-setup">⚙️ Setup</span></h2>
+      </div>
+    </div>
+
+    <p>All completed games are stored and viewable in the <em>Past Games</em> screen:</p>
+
+    <ul>
+      <li>Tap a game row to expand it — see the final score, all points played, and the lineup for each point.</li>
+      <li>Tap <strong>Edit</strong> on an individual point to correct who scored (Us or Them) or to delete a point that was entered incorrectly.</li>
+      <li>Tap <strong>Export CSV</strong> on any game to download a summary file for reporting or archiving.</li>
+      <li>Games can be soft-deleted — they disappear from the list but are not permanently removed.</li>
+    </ul>
+  </section>
+
+  <!-- ── 10. Game End Rules ────────────────────────────────── -->
+  <section class="section" id="rules-ref">
+    <div class="section-heading">
+      <div class="section-accent"></div>
+      <div class="section-heading-text">
+        <h2>10. Game End Rules <span class="badge badge-setup">⚙️ Setup</span></h2>
+      </div>
+    </div>
+
+    <p>Quick reference — also accessible from the Home screen via <strong>Game End Rules</strong>:</p>
+
+    <ul>
+      <li><strong>Win condition:</strong> First team to 11 points wins.</li>
+      <li><strong>Halftime:</strong> First team to reach 6 points, OR the 30-minute wall-clock cap — whichever comes first.</li>
+      <li><strong>Hard cap:</strong> At 60 minutes, finish the current point. If still tied, play a universe point.</li>
+      <li><strong>70-minute rule:</strong> Each team gets one more possession after the 70-minute mark. A tie is possible.</li>
+    </ul>
+
+    <p>The app automatically alerts you at each threshold and adjusts the scoreboard clock colors: orange at 25 min, red at 55 min, danger banner at 60 min.</p>
+  </section>
+
+  <!-- ── Footer ────────────────────────────────────────────── -->
+  <footer class="doc-footer">
+    <p>
+      <strong>Marmots Tracker v1</strong> &mdash; Screenshots to be added.<br>
+      For issues or feature requests, contact the coach.
+    </p>
+  </footer>
+
+</div>
+</body>
+</html>

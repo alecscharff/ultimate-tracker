@@ -3,6 +3,7 @@ import { ACTIONS } from '../context/GameContext';
 import { getDetailedPlayerStats, suggestLineup } from '../utils/lineup';
 import { getPointFlipInfo } from '../utils/gameUtils';
 import LineupPlayerRow from './LineupPlayerRow';
+import BenchTile from './BenchTile';
 import PlayerStatModal from './PlayerStatModal';
 import PlayerInfoModal from './PlayerInfoModal';
 
@@ -204,6 +205,13 @@ export default function PointDetailView({
     const min = Math.min(...metrics);
     return new Set(allIds.filter((id, i) => metrics[i] === min));
   }, [points, checkedInPlayerIds, unavailablePlayerIds, equalizeBy, isCurrentPoint, now]);
+
+  // Split an id array into gx-first, bx-second, preserving internal order
+  function splitByGender(ids) {
+    const gx = ids.filter(id => players.find(p => p.id === id)?.gender === 'gx');
+    const bx = ids.filter(id => players.find(p => p.id === id)?.gender === 'bx');
+    return { gx, bx };
+  }
 
   // Unavailable players list (only for current point view)
   const unavailablePlayerList = useMemo(() => {
@@ -582,31 +590,46 @@ export default function PointDetailView({
             <span className="text-xs uppercase text-navy-400 font-semibold">Bench</span>
             <div className="flex-1 h-px bg-navy-700" />
           </div>
-          <div>
-            {editModeBenchIds.map(id => {
+          {editModeBenchIds.length === 0 ? (
+            <div className="text-xs text-navy-400 py-2 text-center">All players on field</div>
+          ) : (() => {
+            const { gx: gxIds, bx: bxIds } = splitByGender(editModeBenchIds);
+            const showLabels = gxIds.length > 0 && bxIds.length > 0;
+            function renderTile(id) {
               const player = players.find(p => p.id === id);
               if (!player) return null;
               const stats = getDetailedPlayerStats(id, points, now);
               return (
-                <LineupPlayerRow
+                <BenchTile
                   key={id}
                   player={player}
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
-                  benchTimeMs={stats.benchTimeMs}
-                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
-                  isOnField={false}
-                  onMove={() => handleEditMoveToField(id)}
-                  statCounts={{ D: 0, assist: 0, goal: 0 }}
-                  equalizeBy={equalizeBy}
                   pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                  onMove={() => handleEditMoveToField(id)}
+                  equalizeBy={equalizeBy}
                 />
               );
-            })}
-            {editModeBenchIds.length === 0 && (
-              <div className="text-xs text-navy-400 py-2 text-center">All players on field</div>
-            )}
-          </div>
+            }
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                {showLabels && (
+                  <div className="col-span-2 flex items-center gap-2">
+                    <span className="text-[10px] text-purple-400 uppercase font-semibold tracking-wide">gx</span>
+                    <div className="flex-1 h-px bg-purple-400/20" />
+                  </div>
+                )}
+                {gxIds.map(renderTile)}
+                {showLabels && (
+                  <div className="col-span-2 flex items-center gap-2 mt-1">
+                    <span className="text-[10px] text-blue-400 uppercase font-semibold tracking-wide">bx</span>
+                    <div className="flex-1 h-px bg-blue-400/20" />
+                  </div>
+                )}
+                {bxIds.map(renderTile)}
+              </div>
+            );
+          })()}
         </>
       )}
 
@@ -619,19 +642,25 @@ export default function PointDetailView({
             <div className="flex-1 h-px bg-navy-700" />
           </div>
 
-          <div>
-            {benchPlayerIds.filter(id => !sittingOutIds.has(id)).map(id => {
+          {(() => {
+            const activeBench = benchPlayerIds.filter(id => !sittingOutIds.has(id));
+            if (activeBench.length === 0 && !benchPlayerIds.some(id => sittingOutIds.has(id))) {
+              return <div className="text-xs text-navy-400 py-2 text-center">No players on bench</div>;
+            }
+            const { gx: gxIds, bx: bxIds } = splitByGender(activeBench);
+            const showLabels = gxIds.length > 0 && bxIds.length > 0;
+
+            function renderTile(id) {
               const player = players.find(p => p.id === id);
               const stats = getDetailedPlayerStats(id, points, now);
               return (
-                <LineupPlayerRow
+                <BenchTile
                   key={id}
                   player={player}
                   pointsPlayed={stats.pointsPlayed}
                   totalPlayingTimeMs={stats.totalPlayingTimeMs}
-                  benchTimeMs={stats.benchTimeMs}
-                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
-                  isOnField={false}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                  isLeastPlayed={leastPlayedIds.has(id)}
                   onMove={
                     (canMove || canMoveTimeoutSub) ? () => handleMoveToField(id)
                     : (swappingOutId && isCurrentPoint && phase === 'playing') ? () => {
@@ -644,54 +673,83 @@ export default function PointDetailView({
                     swappingOutId && isCurrentPoint && phase === 'playing' ? 'IN' : null
                   }
                   disabled={!canMove && !canMoveTimeoutSub && !(swappingOutId && isCurrentPoint && phase === 'playing')}
-                  statCounts={{ D: 0, assist: 0, goal: 0 }}
                   onInfoTap={() => setInfoModalPlayerId(id)}
                   equalizeBy={equalizeBy}
-                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
-                  isLeastPlayed={leastPlayedIds.has(id)}
                 />
               );
-            })}
-            {benchPlayerIds.filter(id => !sittingOutIds.has(id)).length === 0 &&
-             benchPlayerIds.filter(id => sittingOutIds.has(id)).length === 0 && (
-              <div className="text-xs text-navy-400 py-2 text-center">No players on bench</div>
-            )}
-          </div>
+            }
+
+            return (
+              <div className="grid grid-cols-2 gap-2">
+                {showLabels && (
+                  <div className="col-span-2 flex items-center gap-2">
+                    <span className="text-[10px] text-purple-400 uppercase font-semibold tracking-wide">gx</span>
+                    <div className="flex-1 h-px bg-purple-400/20" />
+                  </div>
+                )}
+                {gxIds.map(renderTile)}
+                {showLabels && (
+                  <div className="col-span-2 flex items-center gap-2 mt-1">
+                    <span className="text-[10px] text-blue-400 uppercase font-semibold tracking-wide">bx</span>
+                    <div className="flex-1 h-px bg-blue-400/20" />
+                  </div>
+                )}
+                {bxIds.map(renderTile)}
+              </div>
+            );
+          })()}
 
           {/* Sitting out this point */}
-          {benchPlayerIds.some(id => sittingOutIds.has(id)) && (
-            <>
-              <div className="flex items-center gap-3 my-3">
-                <div className="flex-1 h-px bg-amber-400/20" />
-                <span className="text-xs uppercase text-amber-400/70 font-semibold">Sitting out this point</span>
-                <div className="flex-1 h-px bg-amber-400/20" />
-              </div>
-              <div>
-                {benchPlayerIds.filter(id => sittingOutIds.has(id)).map(id => {
-                  const player = players.find(p => p.id === id);
-                  const stats = getDetailedPlayerStats(id, points, now);
-                  return (
-                    <LineupPlayerRow
-                      key={id}
-                      player={player}
-                      pointsPlayed={stats.pointsPlayed}
-                      totalPlayingTimeMs={stats.totalPlayingTimeMs}
-                      benchTimeMs={stats.benchTimeMs}
-                      lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
-                      isOnField={false}
-                      isSittingOut={true}
-                      onMove={canMove ? () => handleUnsitPlayer(id) : null}
-                      disabled={!canMove}
-                      statCounts={{ D: 0, assist: 0, goal: 0 }}
-                      onInfoTap={() => setInfoModalPlayerId(id)}
-                      equalizeBy={equalizeBy}
-                      pointsSinceLastPlay={stats.pointsSinceLastPlay}
-                    />
-                  );
-                })}
-              </div>
-            </>
-          )}
+          {benchPlayerIds.some(id => sittingOutIds.has(id)) && (() => {
+            const sittingIds = benchPlayerIds.filter(id => sittingOutIds.has(id));
+            const { gx: gxSit, bx: bxSit } = splitByGender(sittingIds);
+            const showLabels = gxSit.length > 0 && bxSit.length > 0;
+
+            function renderSitTile(id) {
+              const player = players.find(p => p.id === id);
+              const stats = getDetailedPlayerStats(id, points, now);
+              return (
+                <BenchTile
+                  key={id}
+                  player={player}
+                  pointsPlayed={stats.pointsPlayed}
+                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
+                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
+                  onMove={canMove ? () => handleUnsitPlayer(id) : null}
+                  disabled={!canMove}
+                  onInfoTap={() => setInfoModalPlayerId(id)}
+                  equalizeBy={equalizeBy}
+                  isSittingOut={true}
+                />
+              );
+            }
+
+            return (
+              <>
+                <div className="flex items-center gap-3 my-3">
+                  <div className="flex-1 h-px bg-amber-400/20" />
+                  <span className="text-xs uppercase text-amber-400/70 font-semibold">Sitting out</span>
+                  <div className="flex-1 h-px bg-amber-400/20" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 opacity-60">
+                  {showLabels && (
+                    <div className="col-span-2 flex items-center gap-2">
+                      <span className="text-[10px] text-purple-400 uppercase font-semibold tracking-wide">gx</span>
+                      <div className="flex-1 h-px bg-purple-400/20" />
+                    </div>
+                  )}
+                  {gxSit.map(renderSitTile)}
+                  {showLabels && (
+                    <div className="col-span-2 flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-blue-400 uppercase font-semibold tracking-wide">bx</span>
+                      <div className="flex-1 h-px bg-blue-400/20" />
+                    </div>
+                  )}
+                  {bxSit.map(renderSitTile)}
+                </div>
+              </>
+            );
+          })()}
 
           {/* Late arrivals — not checked in at game start, tap to add to bench */}
           {checkedOutPlayerIds.length > 0 && (
@@ -725,38 +783,53 @@ export default function PointDetailView({
       )}
 
       {/* Past point bench section — players who weren't in the lineup */}
-      {isPastPoint && !editingPastPoint && pastPointBenchIds.length > 0 && (
-        <>
-          <div className="flex items-center gap-3 my-3">
-            <div className="flex-1 h-px bg-navy-700" />
-            <span className="text-xs uppercase text-navy-400 font-semibold">Bench</span>
-            <div className="flex-1 h-px bg-navy-700" />
-          </div>
-          <div>
-            {pastPointBenchIds.map(id => {
-              const player = players.find(p => p.id === id);
-              if (!player) return null;
-              const stats = getDetailedPlayerStats(id, points, now);
-              const statCounts = countStatsForPlayer(viewedStats, id);
-              return (
-                <LineupPlayerRow
-                  key={id}
-                  player={player}
-                  pointsPlayed={stats.pointsPlayed}
-                  totalPlayingTimeMs={stats.totalPlayingTimeMs}
-                  benchTimeMs={stats.benchTimeMs}
-                  lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
-                  isOnField={false}
-                  statCounts={statCounts}
-                  onStatTap={() => setStatModalPlayerId(id)}
-                  equalizeBy={equalizeBy}
-                  pointsSinceLastPlay={stats.pointsSinceLastPlay}
-                />
-              );
-            })}
-          </div>
-        </>
-      )}
+      {isPastPoint && !editingPastPoint && pastPointBenchIds.length > 0 && (() => {
+        const { gx: gxIds, bx: bxIds } = splitByGender(pastPointBenchIds);
+        const showLabels = gxIds.length > 0 && bxIds.length > 0;
+
+        function renderTile(id) {
+          const player = players.find(p => p.id === id);
+          if (!player) return null;
+          const stats = getDetailedPlayerStats(id, points, now);
+          return (
+            <BenchTile
+              key={id}
+              player={player}
+              pointsPlayed={stats.pointsPlayed}
+              totalPlayingTimeMs={stats.totalPlayingTimeMs}
+              pointsSinceLastPlay={stats.pointsSinceLastPlay}
+              onStatTap={() => setStatModalPlayerId(id)}
+              equalizeBy={equalizeBy}
+            />
+          );
+        }
+
+        return (
+          <>
+            <div className="flex items-center gap-3 my-3">
+              <div className="flex-1 h-px bg-navy-700" />
+              <span className="text-xs uppercase text-navy-400 font-semibold">Bench</span>
+              <div className="flex-1 h-px bg-navy-700" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {showLabels && (
+                <div className="col-span-2 flex items-center gap-2">
+                  <span className="text-[10px] text-purple-400 uppercase font-semibold tracking-wide">gx</span>
+                  <div className="flex-1 h-px bg-purple-400/20" />
+                </div>
+              )}
+              {gxIds.map(renderTile)}
+              {showLabels && (
+                <div className="col-span-2 flex items-center gap-2 mt-1">
+                  <span className="text-[10px] text-blue-400 uppercase font-semibold tracking-wide">bx</span>
+                  <div className="flex-1 h-px bg-blue-400/20" />
+                </div>
+              )}
+              {bxIds.map(renderTile)}
+            </div>
+          </>
+        );
+      })()}
 
       {/* Unavailable players section — only for current point */}
       {isCurrentPoint && unavailablePlayerList.length > 0 && (
