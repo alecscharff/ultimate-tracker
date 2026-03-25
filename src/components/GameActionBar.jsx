@@ -8,6 +8,7 @@ export default function GameActionBar({
   onTimeout,
   onResumePoint,
   onEndGame,
+  onHalftime,
   onBackToCurrent,
 }) {
   return (
@@ -42,13 +43,24 @@ export default function GameActionBar({
               Start Point
             </button>
           </div>
-          <button
-            onClick={onEndGame}
-            className="btn w-full text-sm text-navy-300 bg-transparent border border-navy-600"
-            style={{ minHeight: 40 }}
-          >
-            End Game
-          </button>
+          <div className="flex gap-2">
+            {onHalftime && (
+              <button
+                onClick={onHalftime}
+                className="btn flex-1 text-sm text-navy-300 bg-transparent border border-navy-600"
+                style={{ minHeight: 40 }}
+              >
+                Halftime
+              </button>
+            )}
+            <button
+              onClick={onEndGame}
+              className={`btn text-sm text-navy-300 bg-transparent border border-navy-600 ${onHalftime ? 'flex-1' : 'w-full'}`}
+              style={{ minHeight: 40 }}
+            >
+              End Game
+            </button>
+          </div>
         </div>
       )}
 

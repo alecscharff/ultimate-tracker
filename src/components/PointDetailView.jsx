@@ -61,6 +61,9 @@ export default function PointDetailView({
   // Info modal state
   const [infoModalPlayerId, setInfoModalPlayerId] = useState(null);
 
+  // Mid-point swap state (two-tap flow: select out player → select in player)
+  const [swappingOutId, setSwappingOutId] = useState(null);
+
   // Past point edit state
   const [editingPastPoint, setEditingPastPoint] = useState(false);
   const [showEditConfirm, setShowEditConfirm] = useState(false);
@@ -72,6 +75,11 @@ export default function PointDetailView({
     setShowEditConfirm(false);
     setEditedLineup(null);
   }, [selectedPointIndex]);
+
+  // Clear mid-point swap when point ends
+  useEffect(() => {
+    setSwappingOutId(null);
+  }, [gameState.ourScore, gameState.theirScore, gameState.phase]);
 
   // Sync editedLineup when entering edit mode
   useEffect(() => {
@@ -536,9 +544,18 @@ export default function PointDetailView({
                   benchTimeMs={stats.benchTimeMs}
                   lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={true}
-                  onMove={canMove ? () => handleSitPlayer(id) : canMoveTimeoutSub ? () => handleMoveToBench(id) : null}
-                  moveBtnLabel={canMove ? 'SIT' : null}
-                  disabled={!canMove && !canMoveTimeoutSub}
+                  onMove={
+                    canMove ? () => handleSitPlayer(id)
+                    : canMoveTimeoutSub ? () => handleMoveToBench(id)
+                    : (isCurrentPoint && phase === 'playing') ? () => setSwappingOutId(swappingOutId === id ? null : id)
+                    : null
+                  }
+                  moveBtnLabel={
+                    canMove ? 'SIT'
+                    : (isCurrentPoint && phase === 'playing') ? (swappingOutId === id ? '✕' : 'SWAP')
+                    : null
+                  }
+                  disabled={!canMove && !canMoveTimeoutSub && !(isCurrentPoint && phase === 'playing')}
                   statCounts={statCounts}
                   onStatTap={((isCurrentPoint && phase === 'playing') || (isPastPoint && !editingPastPoint)) ? () => setStatModalPlayerId(id) : undefined}
                   onNameTap={isCurrentPoint ? () => setInfoModalPlayerId(id) : undefined}
@@ -615,8 +632,18 @@ export default function PointDetailView({
                   benchTimeMs={stats.benchTimeMs}
                   lastPlayedGameMinute={gameMinute(stats.lastPointEndedAt)}
                   isOnField={false}
-                  onMove={(canMove || canMoveTimeoutSub) ? () => handleMoveToField(id) : null}
-                  disabled={!canMove && !canMoveTimeoutSub}
+                  onMove={
+                    (canMove || canMoveTimeoutSub) ? () => handleMoveToField(id)
+                    : (swappingOutId && isCurrentPoint && phase === 'playing') ? () => {
+                        dispatch({ type: ACTIONS.MID_POINT_SUB, outId: swappingOutId, inId: id });
+                        setSwappingOutId(null);
+                      }
+                    : null
+                  }
+                  moveBtnLabel={
+                    swappingOutId && isCurrentPoint && phase === 'playing' ? 'IN' : null
+                  }
+                  disabled={!canMove && !canMoveTimeoutSub && !(swappingOutId && isCurrentPoint && phase === 'playing')}
                   statCounts={{ D: 0, assist: 0, goal: 0 }}
                   onInfoTap={() => setInfoModalPlayerId(id)}
                   equalizeBy={equalizeBy}

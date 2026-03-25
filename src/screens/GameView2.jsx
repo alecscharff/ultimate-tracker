@@ -142,8 +142,14 @@ export default function GameView2() {
     dispatch({ type: ACTIONS.SET_LINEUP, lineup: suggested });
   }
 
+  const [showPlayingDown, setShowPlayingDown] = useState(false);
+
   function handleStartPoint() {
     if (state.onField.length === 0) return;
+    if (state.onField.length < 5) {
+      setShowPlayingDown(true);
+      return;
+    }
     dispatch({ type: ACTIONS.START_POINT });
   }
 
@@ -338,11 +344,12 @@ export default function GameView2() {
             {currentPointFlip.direction && (
               <span className="text-xs text-navy-200 font-semibold">
                 Marmots attack {currentPointFlip.direction}
-              </span>
-            )}
-            {currentPointFlip.puller && (
-              <span className="text-xs text-navy-400">
-                · {currentPointFlip.puller === 'us' ? 'Marmots pull' : `${state.opponent} pulls`}
+                {currentPointFlip.puller && (
+                  <span className="text-navy-400 font-normal">
+                    {' · '}
+                    {currentPointFlip.puller === 'us' ? 'we pull' : 'we receive'}
+                  </span>
+                )}
               </span>
             )}
           </div>
@@ -371,6 +378,7 @@ export default function GameView2() {
         onTimeout={handleTimeout}
         onResumePoint={handleResumePoint}
         onEndGame={handleEndGame}
+        onHalftime={!state.halftimeTaken ? () => dispatch({ type: ACTIONS.START_HALFTIME }) : undefined}
         onBackToCurrent={() => setSelectedPointIndex(null)}
       />
 
@@ -386,6 +394,36 @@ export default function GameView2() {
           dispatch({ type: ACTIONS.DISMISS_SUB });
         }}
       />
+
+      {/* Playing down confirmation */}
+      {showPlayingDown && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={() => setShowPlayingDown(false)}>
+          <div className="bg-navy-900 w-full rounded-t-2xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div>
+              <div className="font-display text-xl text-gold">Playing down?</div>
+              <div className="text-sm text-navy-300 mt-1">
+                Only {state.onField.length} player{state.onField.length !== 1 ? 's' : ''} in the lineup.
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowPlayingDown(false)}
+                className="flex-1 btn border border-navy-600 text-navy-300"
+                style={{ minHeight: 48 }}
+              >
+                Go back
+              </button>
+              <button
+                onClick={() => { setShowPlayingDown(false); dispatch({ type: ACTIONS.START_POINT }); }}
+                className="flex-1 btn-gold font-bold"
+                style={{ minHeight: 48 }}
+              >
+                Yes, playing down
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Game summary modal — shown before saving */}
       {showGameSummary && (
